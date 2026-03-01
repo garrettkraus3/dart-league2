@@ -100,7 +100,7 @@ function boardDartToMatch(dart) {
 }
 
 function DartBoard({ onScore, disabled, cricketOnly }) {
-  const cx = 170, cy = 170, size = 360;
+  const cx = 210, cy = 210, size = 420;
   const rings = { bull: 23, bullseye: 44, triple: 95, tripleEnd: 125, double: 155, doubleEnd: 185 };
   const [hovered, setHovered] = useState(null);
 
@@ -135,7 +135,6 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
 
     return (
       <g key={num} opacity={inactive ? 0.2 : 1}>
-        {/* Inner single */}
         <path d={makeArc(angleStart, angleEnd, rings.bullseye + 1, rings.triple)}
           fill={hovered === `S${num}` ? hoverColor : singleColor}
           stroke="#333" strokeWidth="0.5"
@@ -143,7 +142,6 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
           onMouseEnter={() => !inactive && setHovered(`S${num}`)}
           onMouseLeave={() => setHovered(null)}
           onClick={() => handleTap({ segment: "single", position: String(num), value: num })} />
-        {/* Triple ring */}
         <path d={makeArc(angleStart, angleEnd, rings.triple, rings.tripleEnd)}
           fill={hovered === `T${num}` ? hoverColor : scoringColor}
           stroke="#333" strokeWidth="0.5"
@@ -151,7 +149,6 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
           onMouseEnter={() => !inactive && setHovered(`T${num}`)}
           onMouseLeave={() => setHovered(null)}
           onClick={() => handleTap({ segment: "triple", position: String(num), value: num * 3 })} />
-        {/* Outer single */}
         <path d={makeArc(angleStart, angleEnd, rings.tripleEnd, rings.double)}
           fill={hovered === `S2${num}` ? hoverColor : singleColor}
           stroke="#333" strokeWidth="0.5"
@@ -159,7 +156,6 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
           onMouseEnter={() => !inactive && setHovered(`S2${num}`)}
           onMouseLeave={() => setHovered(null)}
           onClick={() => handleTap({ segment: "single", position: String(num), value: num })} />
-        {/* Double ring */}
         <path d={makeArc(angleStart, angleEnd, rings.double, rings.doubleEnd)}
           fill={hovered === `D${num}` ? hoverColor : scoringColor}
           stroke="#333" strokeWidth="0.5"
@@ -167,7 +163,6 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
           onMouseEnter={() => !inactive && setHovered(`D${num}`)}
           onMouseLeave={() => setHovered(null)}
           onClick={() => handleTap({ segment: "double", position: String(num), value: num * 2 })} />
-        {/* Number label */}
         <text x={labelPos.x} y={labelPos.y}
           textAnchor="middle" dominantBaseline="middle"
           fontSize="13" fontWeight="bold"
@@ -180,19 +175,17 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
   });
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
-      style={{ width: "100%", height: "auto", maxWidth: "340px", display: "block", margin: "0 auto", opacity, filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.5))", touchAction: "manipulation" }}>
-      <circle cx={cx} cy={cy} r={212} fill="#111" />
-      <circle cx={cx} cy={cy} r={207} fill="#1a1a1a" />
+    <svg viewBox={`0 0 ${size} ${size}`}
+      style={{ width: "100%", height: "auto", display: "block", margin: "0 auto", opacity, filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))", touchAction: "manipulation" }}>
+      <circle cx={cx} cy={cy} r={207} fill="#111" />
+      <circle cx={cx} cy={cy} r={202} fill="#1a1a1a" />
       {segments}
-      {/* Bull (25) */}
       <circle cx={cx} cy={cy} r={rings.bullseye}
         fill={hovered === "SBull" ? "#ffd60a" : "#2d6a4f"}
         stroke="#333" strokeWidth="1"
         style={{ cursor: disabled ? "default" : "pointer" }}
         onMouseEnter={() => setHovered("SBull")} onMouseLeave={() => setHovered(null)}
         onClick={() => handleTap({ segment: "single", position: "bull", value: 25 })} />
-      {/* Bullseye (50) */}
       <circle cx={cx} cy={cy} r={rings.bull}
         fill={hovered === "DBull" ? "#ffd60a" : "#e63946"}
         stroke="#333" strokeWidth="1"
@@ -367,6 +360,73 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const [bustMessage, setBustMessage] = useState("");
   const [inputMode, setInputMode]   = useState("list"); // "list" | "board"
 
+  // ── Undo history stack ────────────────────────────────────────────────────
+  // Each entry is a full snapshot of all game state, plus optional turn_id to delete from DB
+  const [history, setHistory] = useState([]);
+
+  const snapshotState = (turnIdToDelete = null) => ({
+    darts: [],
+    turnBust: false,
+    turnWin: false,
+    bustMessage: "",
+    turnNumber,
+    currentPlayerIdx,
+    xo1Scores: { ...xo1Scores },
+    cricketState: JSON.parse(JSON.stringify(cricketState)),
+    legScores: { ...legScores },
+    legNumber,
+    currentLeg,
+    awaitingFirstThrow,
+    awaitingLeg5Choice,
+    chosenLeg5Type,
+    turnIdToDelete,
+  });
+
+  const pushHistory = (snapshot) => {
+    setHistory(prev => [...prev, snapshot]);
+  };
+
+  const handleUndo = async () => {
+    // First: if there are darts in the current turn, just pop the last one
+    if (darts.length > 0 && !turnBust && !turnWin) {
+      const newDarts = darts.slice(0, -1);
+      setDarts(newDarts);
+      setBustMessage("");
+      return;
+    }
+
+    // Otherwise restore from history stack
+    if (history.length === 0) return;
+    const snap = history[history.length - 1];
+    setHistory(prev => prev.slice(0, -1));
+
+    // Delete the DB turn row if one was recorded
+    if (snap.turnIdToDelete) {
+      await supabase.from("turns").delete().eq("id", snap.turnIdToDelete);
+      // Restore match leg scores in DB too
+      await supabase.from("matches").update({
+        player1_legs: snap.legScores[match.match.player1_id],
+        player2_legs: snap.legScores[match.match.player2_id],
+      }).eq("id", matchData.id);
+    }
+
+    // Restore all state
+    setDarts(snap.darts);
+    setTurnBust(snap.turnBust);
+    setTurnWin(snap.turnWin);
+    setBustMessage(snap.bustMessage);
+    setTurnNumber(snap.turnNumber);
+    setCurrentPlayerIdx(snap.currentPlayerIdx);
+    setXo1Scores(snap.xo1Scores);
+    setCricketState(snap.cricketState);
+    setLegScores(snap.legScores);
+    setLegNumber(snap.legNumber);
+    setCurrentLeg(snap.currentLeg);
+    setAwaitingFirstThrow(snap.awaitingFirstThrow);
+    setAwaitingLeg5Choice(snap.awaitingLeg5Choice);
+    setChosenLeg5Type(snap.chosenLeg5Type);
+  };
+
   const p1 = players.find(p => p.id === match.match.player1_id);
   const p2 = players.find(p => p.id === match.match.player2_id);
   const playerOrder   = [match.match.player1_id, match.match.player2_id];
@@ -464,6 +524,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Submit 501 turn ────────────────────────────────────────────────────────
   const submitTurn501 = async (submittedDarts, bust, win, playerId) => {
     setLoading(true);
+    // Snapshot BEFORE committing so undo can restore to this state
+    const snap = snapshotState();
+    pushHistory(snap);
+
     const scored = bust ? 0 : submittedDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
     const prevRemaining = xo1Scores[playerId];
     const newRemaining  = bust ? prevRemaining : prevRemaining - scored;
@@ -492,7 +556,13 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       dart3_value:    d[2] ? dartValue(d[2].number, d[2].modifier) : null,
     };
 
-    await supabase.from("turns").insert(turnData);
+    const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
+    // Update snapshot with the real turn ID so undo can delete it
+    setHistory(prev => {
+      const updated = [...prev];
+      updated[updated.length - 1] = { ...updated[updated.length - 1], turnIdToDelete: insertedTurn?.id || null };
+      return updated;
+    });
 
     if (!bust) {
       setXo1Scores(prev => ({ ...prev, [playerId]: newRemaining }));
@@ -509,9 +579,11 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Submit Cricket turn ────────────────────────────────────────────────────
   const submitTurnCricket = async (submittedDarts, finalCricket, win, playerId) => {
     setLoading(true);
-    const d = submittedDarts;
+    // Snapshot BEFORE committing so undo can restore to this state
+    const snap = snapshotState();
+    pushHistory(snap);
 
-    // Calculate total marks and points this turn
+    const d = submittedDarts;
     const turnPoints = finalCricket[playerId].points - cricketState[playerId].points;
 
     const turnData = {
@@ -530,7 +602,6 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       dart3_number:   d[2]?.number || null,
       dart3_modifier: d[2]?.modifier || null,
       dart3_value:    d[2] && d[2].number !== "Miss" ? (CRICKET_NUMBERS.includes(d[2].number) ? 1 : 0) : 0,
-      // Cricket mark columns
       cricket_15:   countMarks(d, 15),
       cricket_16:   countMarks(d, 16),
       cricket_17:   countMarks(d, 17),
@@ -540,7 +611,12 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       cricket_bull: countMarks(d, "Bull"),
     };
 
-    await supabase.from("turns").insert(turnData);
+    const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
+    setHistory(prev => {
+      const updated = [...prev];
+      updated[updated.length - 1] = { ...updated[updated.length - 1], turnIdToDelete: insertedTurn?.id || null };
+      return updated;
+    });
 
     if (win) {
       await completeLeg(playerId);
@@ -582,13 +658,19 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const p2Legs = newLegScores[match.match.player2_id];
     await supabase.from("matches").update({ player1_legs: p1Legs, player2_legs: p2Legs }).eq("id", matchData.id);
 
-    if (p1Legs >= 3 || p2Legs >= 3) {
+    // Always play all 5 legs — match ends only after leg 5
+    if (legNumber >= 5) {
+      const matchWinnerId = p1Legs > p2Legs
+        ? match.match.player1_id
+        : p2Legs > p1Legs
+        ? match.match.player2_id
+        : winnerId; // tiebreaker: last leg winner
       await supabase.from("matches").update({
-        winner_id: winnerId,
+        winner_id: matchWinnerId,
         status: "completed",
         completed_at: new Date().toISOString(),
       }).eq("id", matchData.id);
-      setWinner(players.find(p => p.id === winnerId));
+      setWinner(players.find(p => p.id === matchWinnerId));
       setMatchOver(true);
       return;
     }
@@ -857,6 +939,13 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
           onClick={() => setInputMode("board")}
         >
           🎯 Board
+        </button>
+        <button
+          className={`mode-btn undo-btn ${darts.length === 0 && history.length === 0 ? "disabled-btn" : ""}`}
+          onClick={handleUndo}
+          disabled={loading || (darts.length === 0 && history.length === 0)}
+        >
+          ↩ Undo
         </button>
       </div>
 

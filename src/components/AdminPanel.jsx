@@ -11,7 +11,8 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
   // Matches state
   const [matches, setMatches] = useState([]);
   const [matchesLoading, setMatchesLoading] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null); // match object
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [resumeLoading, setResumeLoading] = useState(null); // match id being resumed
 
   // Players state
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -51,6 +52,28 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
     loadMatches();
   };
 
+  const resumeMatch = async (match) => {
+    setResumeLoading(match.id);
+
+    // Fetch all legs for this match ordered by leg_number
+    const { data: legs } = await supabase
+      .from("legs")
+      .select("*")
+      .eq("match_id", match.id)
+      .order("leg_number", { ascending: true });
+
+    if (!legs || legs.length === 0) {
+      setResumeLoading(null);
+      return;
+    }
+
+    // Find the most recent incomplete leg (status != completed), or last leg if all done
+    const currentLeg = legs.find(l => l.status !== "completed") || legs[legs.length - 1];
+
+    navigate("active", { match, currentLeg });
+    setResumeLoading(null);
+  };
+
   const addPlayer = async () => {
     const name = newPlayerName.trim();
     if (!name) return setPlayerError("Enter a name");
@@ -84,12 +107,11 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
   };
 
   const matchLabel = (m) => {
-    const type = m.game_type?.toUpperCase();
     const score = m.status === "completed"
       ? `${m.player1_legs}–${m.player2_legs}`
-      : "In Progress";
+      : `${m.player1_legs}–${m.player2_legs} in progress`;
     const winner = m.winner?.name ? ` · ${m.winner.name} wins` : "";
-    return { type, score, winner };
+    return { score, winner };
   };
 
   // ── Login screen ──────────────────────────────────────────────────────────
@@ -145,7 +167,8 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
             <div className="empty-state">No matches recorded yet.</div>
           )}
           {matches.map(m => {
-            const { type, score, winner } = matchLabel(m);
+            const { score, winner } = matchLabel(m);
+            const isInProgress = m.status !== "completed";
             return (
               <div key={m.id} className="admin-match-row">
                 <div className="admin-match-info">
@@ -156,12 +179,25 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
                     {formatDate(m.started_at)} · {score}{winner}
                   </div>
                   <div className="admin-match-status">
-                    <span className={`status-badge ${m.status}`}>{m.status === "completed" ? "Completed" : "In Progress"}</span>
+                    <span className={`status-badge ${m.status}`}>
+                      {isInProgress ? "In Progress" : "Completed"}
+                    </span>
                   </div>
                 </div>
-                <button className="btn-delete" onClick={() => setConfirmDelete(m)}>
-                  🗑
-                </button>
+                <div className="admin-match-actions">
+                  {isInProgress && (
+                    <button
+                      className="btn-resume"
+                      onClick={() => resumeMatch(m)}
+                      disabled={resumeLoading === m.id}
+                    >
+                      {resumeLoading === m.id ? "..." : "▶ Resume"}
+                    </button>
+                  )}
+                  <button className="btn-delete" onClick={() => setConfirmDelete(m)}>
+                    🗑
+                  </button>
+                </div>
               </div>
             );
           })}

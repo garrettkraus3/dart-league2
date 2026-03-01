@@ -65,7 +65,7 @@ export default function NewMatch({ players, supabase, navigate }) {
             </div>
           ))}
         </div>
-        <div className="format-sub">First to win 3 legs wins the match</div>
+        <div className="format-sub">All 5 legs are played — most legs wins</div>
       </div>
 
       <div className="form-section">

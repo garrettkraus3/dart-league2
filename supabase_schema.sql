@@ -60,6 +60,7 @@ CREATE TABLE turns (
   cricket_19 INTEGER DEFAULT 0,
   cricket_20 INTEGER DEFAULT 0,
   cricket_bull INTEGER DEFAULT 0,
+  cricket_dbull INTEGER DEFAULT 0,
   cricket_points INTEGER DEFAULT 0, -- points scored on opponent's open numbers
   
   created_at TIMESTAMPTZ DEFAULT NOW()

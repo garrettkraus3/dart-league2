@@ -14,7 +14,8 @@ function getLegGameType(legNumber, chosenLeg5) {
 function dartValue(number, modifier) {
   if (number === null) return 0;
   if (number === "Miss") return 0;
-  if (number === "Bull") return modifier === "double" ? 50 : 25;
+  // Both single bull and double bull = 50 in 501
+  if (number === "Bull" || number === "DBull") return 50;
   const n = parseInt(number);
   if (isNaN(n)) return 0;
   if (modifier === "triple") return n * 3;
@@ -23,8 +24,6 @@ function dartValue(number, modifier) {
 }
 
 function isBust(remaining, darts) {
-  // remaining after this turn's darts so far
-  // bust if: goes below 0, hits exactly 1, or reaches 0 on non-double
   const total = darts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
   const newRemaining = remaining - total;
   if (newRemaining < 0) return true;
@@ -32,8 +31,9 @@ function isBust(remaining, darts) {
   if (newRemaining === 0) {
     const last = darts[darts.length - 1];
     if (!last) return false;
-    // Must finish on double or double bull
-    return last.modifier !== "double";
+    // Valid finish: any bull hit (single or double) OR a double
+    const isBullFinish = last.number === "Bull" || last.number === "DBull";
+    return !isBullFinish && last.modifier !== "double";
   }
   return false;
 }
@@ -92,7 +92,9 @@ function polarToXY(angle, r, cx, cy) {
 
 // Translates a board tap {segment, position, value} → ActiveMatch dart {number, modifier}
 function boardDartToMatch(dart) {
-  const number   = dart.position === "bull" ? "Bull" : parseInt(dart.position);
+  if (dart.position === "SBull") return { number: "Bull",  modifier: "single" };
+  if (dart.position === "DBull") return { number: "DBull", modifier: "double" };
+  const number   = parseInt(dart.position);
   const modifier = dart.segment === "triple" ? "triple"
                  : dart.segment === "double" ? "double"
                  : "single";
@@ -114,8 +116,11 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
 
   const handleTap = (dart) => {
     if (disabled) return;
-    const num = dart.position === "bull" ? "Bull" : parseInt(dart.position);
-    if (cricketOnly && num !== "Bull" && !CRICKET_SET.has(num)) return;
+    // For numbered segments, check cricket filter
+    if (dart.position !== "SBull" && dart.position !== "DBull") {
+      const num = parseInt(dart.position);
+      if (cricketOnly && !CRICKET_SET.has(num)) return;
+    }
     onScore(dart);
   };
 
@@ -185,13 +190,13 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
         stroke="#333" strokeWidth="1"
         style={{ cursor: disabled ? "default" : "pointer" }}
         onMouseEnter={() => setHovered("SBull")} onMouseLeave={() => setHovered(null)}
-        onClick={() => handleTap({ segment: "single", position: "bull", value: 25 })} />
+        onClick={() => handleTap({ segment: "single", position: "SBull", value: 50 })} />
       <circle cx={cx} cy={cy} r={rings.bull}
         fill={hovered === "DBull" ? "#ffd60a" : "#e63946"}
         stroke="#333" strokeWidth="1"
         style={{ cursor: disabled ? "default" : "pointer" }}
         onMouseEnter={() => setHovered("DBull")} onMouseLeave={() => setHovered(null)}
-        onClick={() => handleTap({ segment: "double", position: "bull", value: 50 })} />
+        onClick={() => handleTap({ segment: "double", position: "DBull", value: 50 })} />
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
         fontSize="8" fontWeight="bold" fill="white"
         style={{ pointerEvents: "none" }}>BULL</text>
@@ -252,10 +257,17 @@ function DartInput({ onSelect, disabled, inputMode }) {
             {n}
           </button>
         ))}
+        {/* Single bull always available (= 50) */}
         <button className="number-btn bull-btn"
-          onClick={() => selectNumber("Bull")}
-          disabled={disabled || !modifier || modifier === "triple"}>
+          onClick={() => !disabled && modifier && onSelect({ number: "Bull", modifier: "single" })}
+          disabled={disabled || !modifier}>
           Bull
+        </button>
+        {/* Double bull always available (= 50) */}
+        <button className="number-btn bull-btn"
+          onClick={() => !disabled && modifier && onSelect({ number: "DBull", modifier: "double" })}
+          disabled={disabled || !modifier}>
+          D.Bull
         </button>
       </div>
     </div>
@@ -305,13 +317,25 @@ function CricketDartInput({ onSelect, disabled, inputMode }) {
         <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}>Miss</button>
       </div>
       <div className={`cricket-number-grid ${!modifier ? "locked" : ""}`}>
-        {CRICKET_NUMBERS.map(num => (
+        {[20,19,18,17,16,15].map(num => (
           <button key={num} className="cricket-num-btn"
             onClick={() => selectNumber(num)}
-            disabled={disabled || !modifier || (modifier === "triple" && num === "Bull")}>
+            disabled={disabled || !modifier}>
             {num}
           </button>
         ))}
+        {/* Single bull = 1 mark */}
+        <button className="cricket-num-btn"
+          onClick={() => !disabled && modifier && onSelect({ number: "Bull", modifier: "single" })}
+          disabled={disabled || !modifier}>
+          Bull
+        </button>
+        {/* Double bull = 2 marks */}
+        <button className="cricket-num-btn"
+          onClick={() => !disabled && modifier && onSelect({ number: "DBull", modifier: "double" })}
+          disabled={disabled || !modifier}>
+          D.Bull
+        </button>
       </div>
     </div>
   );
@@ -361,11 +385,12 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const [inputMode, setInputMode]   = useState("list"); // "list" | "board"
 
   // ── Undo history stack ────────────────────────────────────────────────────
-  // Each entry is a full snapshot of all game state, plus optional turn_id to delete from DB
+  // Snapshot taken BEFORE each dart is recorded — restores to that exact moment.
+  // turnIdToDelete is set only on the 3rd-dart snapshot (when a turn was committed to DB).
   const [history, setHistory] = useState([]);
 
-  const snapshotState = (turnIdToDelete = null) => ({
-    darts: [],
+  const captureSnapshot = (currentDarts, turnIdToDelete = null) => ({
+    darts: currentDarts,          // darts array at the moment of snapshot
     turnBust: false,
     turnWin: false,
     bustMessage: "",
@@ -382,35 +407,21 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     turnIdToDelete,
   });
 
-  const pushHistory = (snapshot) => {
-    setHistory(prev => [...prev, snapshot]);
-  };
-
   const handleUndo = async () => {
-    // First: if there are darts in the current turn, just pop the last one
-    if (darts.length > 0 && !turnBust && !turnWin) {
-      const newDarts = darts.slice(0, -1);
-      setDarts(newDarts);
-      setBustMessage("");
-      return;
-    }
-
-    // Otherwise restore from history stack
     if (history.length === 0) return;
     const snap = history[history.length - 1];
     setHistory(prev => prev.slice(0, -1));
 
-    // Delete the DB turn row if one was recorded
+    // If this snapshot has a DB turn to delete, remove it and fix match leg scores
     if (snap.turnIdToDelete) {
       await supabase.from("turns").delete().eq("id", snap.turnIdToDelete);
-      // Restore match leg scores in DB too
       await supabase.from("matches").update({
         player1_legs: snap.legScores[match.match.player1_id],
         player2_legs: snap.legScores[match.match.player2_id],
       }).eq("id", matchData.id);
     }
 
-    // Restore all state
+    // Restore full game state to the snapshot moment
     setDarts(snap.darts);
     setTurnBust(snap.turnBust);
     setTurnWin(snap.turnWin);
@@ -442,6 +453,9 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const handleDart501 = (dart) => {
     if (darts.length >= 3 || turnBust || turnWin) return;
 
+    // Snapshot BEFORE this dart so undo lands here (with current darts array)
+    setHistory(prev => [...prev, captureSnapshot(darts)]);
+
     const newDarts = [...darts, dart];
     const totalSoFar = newDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
     const newRemaining = xo1Scores[currentPlayerId] - totalSoFar;
@@ -455,9 +469,11 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       bust = true;
       setBustMessage(newRemaining < 0 ? "Bust! Score exceeded." : "Bust! Can't finish on 1.");
     } else if (newRemaining === 0) {
-      if (dart.modifier !== "double") {
+      // Valid finish: double, single bull, or double bull
+      const isBullFinish = dart.number === "Bull" || dart.number === "DBull";
+      if (!isBullFinish && dart.modifier !== "double") {
         bust = true;
-        setBustMessage("Bust! Must finish on a double.");
+        setBustMessage("Bust! Must finish on a double or bull.");
       } else {
         win = true;
       }
@@ -475,6 +491,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   const handleDartCricket = (dart) => {
     if (darts.length >= 3 || turnWin) return;
+
+    // Snapshot BEFORE this dart
+    setHistory(prev => [...prev, captureSnapshot(darts)]);
+
     const newDarts = [...darts, dart];
     setDarts(newDarts);
 
@@ -491,31 +511,35 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const applyCricketDart = (dart, state, myId, oppId) => {
     if (dart.number === "Miss") return { newCricket: state, win: false };
 
-    const num = dart.number;
+    // Normalize: both "Bull" and "DBull" map to the cricket "Bull" slot
+    const isBull = dart.number === "Bull" || dart.number === "DBull";
+    const num = isBull ? "Bull" : dart.number;
+
     if (!CRICKET_NUMBERS.includes(num)) return { newCricket: state, win: false };
 
     const newCricket = JSON.parse(JSON.stringify(state));
-    const marks = dart.modifier === "triple" ? 3 : dart.modifier === "double" ? 2 : 1;
+    // Single bull = 1 mark, Double bull = 2 marks, Triple = 3 marks (numbers only)
+    const marks = isBull
+      ? (dart.number === "DBull" ? 2 : 1)
+      : (dart.modifier === "triple" ? 3 : dart.modifier === "double" ? 2 : 1);
+
     const myMarks  = newCricket[myId][num];
     const oppMarks = newCricket[oppId][num];
-    const pointVal = num === "Bull" ? 25 : parseInt(num);
+    const pointVal = 25; // bull scoring value
 
     if (myMarks < 3) {
-      // Still closing — some marks close, overflow scores points
-      const closing   = Math.min(marks, 3 - myMarks);
-      const overflow  = marks - closing;
+      const closing  = Math.min(marks, 3 - myMarks);
+      const overflow = marks - closing;
       newCricket[myId][num] = myMarks + closing;
       if (overflow > 0 && oppMarks < 3) {
         newCricket[myId].points += overflow * pointVal;
       }
     } else {
-      // Already closed — score points if opponent hasn't closed
       if (oppMarks < 3) {
         newCricket[myId].points += marks * pointVal;
       }
     }
 
-    // Check win: all numbers closed AND my points >= opponent points
     const allClosed = CRICKET_NUMBERS.every(n => newCricket[myId][n] >= 3);
     const win = allClosed && newCricket[myId].points >= newCricket[oppId].points;
     return { newCricket, win };
@@ -524,9 +548,6 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Submit 501 turn ────────────────────────────────────────────────────────
   const submitTurn501 = async (submittedDarts, bust, win, playerId) => {
     setLoading(true);
-    // Snapshot BEFORE committing so undo can restore to this state
-    const snap = snapshotState();
-    pushHistory(snap);
 
     const scored = bust ? 0 : submittedDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
     const prevRemaining = xo1Scores[playerId];
@@ -557,12 +578,17 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     };
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
-    // Update snapshot with the real turn ID so undo can delete it
-    setHistory(prev => {
-      const updated = [...prev];
-      updated[updated.length - 1] = { ...updated[updated.length - 1], turnIdToDelete: insertedTurn?.id || null };
-      return updated;
-    });
+
+    // Tag the last history snapshot (the one before the final dart) with the DB turn ID
+    // so undo across this turn boundary will delete the right row
+    if (insertedTurn?.id) {
+      setHistory(prev => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev];
+        updated[updated.length - 1] = { ...updated[updated.length - 1], turnIdToDelete: insertedTurn.id };
+        return updated;
+      });
+    }
 
     if (!bust) {
       setXo1Scores(prev => ({ ...prev, [playerId]: newRemaining }));
@@ -579,9 +605,6 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Submit Cricket turn ────────────────────────────────────────────────────
   const submitTurnCricket = async (submittedDarts, finalCricket, win, playerId) => {
     setLoading(true);
-    // Snapshot BEFORE committing so undo can restore to this state
-    const snap = snapshotState();
-    pushHistory(snap);
 
     const d = submittedDarts;
     const turnPoints = finalCricket[playerId].points - cricketState[playerId].points;
@@ -608,15 +631,21 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       cricket_18:   countMarks(d, 18),
       cricket_19:   countMarks(d, 19),
       cricket_20:   countMarks(d, 20),
-      cricket_bull: countMarks(d, "Bull"),
+      cricket_bull:  countMarks(d, "Bull"),   // single bull hits
+      cricket_dbull: countMarks(d, "DBull"),  // double bull hits
     };
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
-    setHistory(prev => {
-      const updated = [...prev];
-      updated[updated.length - 1] = { ...updated[updated.length - 1], turnIdToDelete: insertedTurn?.id || null };
-      return updated;
-    });
+
+    // Tag the last history snapshot with the DB turn ID for cross-turn undo
+    if (insertedTurn?.id) {
+      setHistory(prev => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev];
+        updated[updated.length - 1] = { ...updated[updated.length - 1], turnIdToDelete: insertedTurn.id };
+        return updated;
+      });
+    }
 
     if (win) {
       await completeLeg(playerId);

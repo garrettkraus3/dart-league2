@@ -45,6 +45,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const [error, setError] = useState("");
   const [matchOver, setMatchOver] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [confirmAbandon, setConfirmAbandon] = useState(false);
 
   const p1 = players.find(p => p.id === match.match.player1_id);
   const p2 = players.find(p => p.id === match.match.player2_id);
@@ -65,6 +66,17 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const idx = playerOrder.indexOf(playerId);
     setCurrentPlayerIdx(idx);
     setAwaitingFirstThrow(false);
+  };
+
+
+  const abandonMatch = async () => {
+    setLoading(true);
+    // Delete turns, legs, then match — cascade handles it but be explicit
+    await supabase.from("turns").delete().eq("match_id", matchData.id);
+    await supabase.from("legs").delete().eq("match_id", matchData.id);
+    await supabase.from("matches").delete().eq("id", matchData.id);
+    setLoading(false);
+    navigate("home");
   };
 
   // ── Who throws first? prompt ─────────────────────────────────────────────
@@ -303,6 +315,21 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Main match UI ────────────────────────────────────────────────────────
   return (
     <div className="screen active-match">
+      {confirmAbandon && (
+        <div className="abandon-overlay">
+          <div className="abandon-card">
+            <h3>Abandon Match?</h3>
+            <p>This will permanently delete all data for this match. It cannot be undone.</p>
+            <button className="btn-danger big-btn" onClick={abandonMatch} disabled={loading}>
+              {loading ? "Deleting..." : "Yes, Delete It"}
+            </button>
+            <button className="btn-secondary big-btn" onClick={() => setConfirmAbandon(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="scoreboard">
         <div className={`player-score ${currentPlayerIdx === 0 ? "active-player" : ""}`}>
           <div className="player-name">{p1?.name}</div>
@@ -419,6 +446,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       <button className="btn-primary big-btn submit-btn" onClick={submitTurn} disabled={loading}>
         {loading ? "Saving..." : "SUBMIT TURN →"}
       </button>
+      <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>
+        Abandon Match
+      </button>
+
     </div>
   );
 }

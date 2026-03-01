@@ -89,6 +89,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
   const [schedule, setSchedule]           = useState([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [standings, setStandings]         = useState([]);
+  const [seasonPlayerIds, setSeasonPlayerIds] = useState([]);
   const [confirmDeleteSeason, setConfirmDeleteSeason] = useState(null);
 
   useEffect(() => { loadSeasons(); }, []);
@@ -265,6 +266,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
         .select("player_id, player:player_id(id, name)")
         .eq("season_id", season.id);
       if (spRows) {
+        setSeasonPlayerIds(spRows.map(sp => sp.player_id));
         for (const sp of spRows) {
           if (!playerMap[sp.player_id]) {
             playerMap[sp.player_id] = { wins: 0, losses: 0, legs_for: 0, legs_against: 0, name: sp.player?.name || "" };
@@ -292,8 +294,30 @@ export default function SeasonManager({ supabase, players, navigate }) {
   const resumeSeasonMatch = async (m) => {
     const { data: legs } = await supabase
       .from("legs").select("*").eq("match_id", m.id).order("leg_number", { ascending: true });
-    const currentLeg = legs?.find(l => l.status !== "completed") || legs?.[legs.length - 1];
-    if (currentLeg) navigate("active", { match: m, currentLeg });
+
+    // If no legs exist yet, start fresh (match was in_progress but legs were never created)
+    if (!legs || legs.length === 0) {
+      await startSeasonMatch(m);
+      return;
+    }
+
+    const currentLeg = legs.find(l => l.status !== "completed") || legs[legs.length - 1];
+    navigate("active", { match: m, currentLeg });
+  };
+
+  // ── Compute byes for a week ────────────────────────────────────────────────
+  // Returns array of player names who have no match in that week
+  const getByesForWeek = (matches, seasonPlayerIds) => {
+    const playingIds = new Set();
+    for (const m of matches) {
+      if (m) {
+        playingIds.add(m.player1_id);
+        playingIds.add(m.player2_id);
+      }
+    }
+    return seasonPlayerIds
+      .filter(id => !playingIds.has(id))
+      .map(id => players.find(p => p.id === id)?.name || "Unknown");
   };
 
   const getPlayerName = (id) => players.find(p => p.id === id)?.name || "?";
@@ -352,7 +376,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
                 {s.status === "active" ? "Active" : "Completed"}
               </span>
               {authed && (
-                <button className="btn-delete" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}>🗑</button>
+                <button className="btn-delete season-delete-btn" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}>🗑</button>
               )}
             </div>
           </div>
@@ -501,7 +525,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
           <button className="back-btn" onClick={() => { setView("list"); loadSeasons(); }}>← Back</button>
           <h2>{detailSeason.name}</h2>
           {authed && (
-            <button className="btn-delete" style={{ marginLeft: "auto" }}
+            <button className="btn-delete season-delete-btn" style={{ marginLeft: "auto" }}
               onClick={() => requireAdmin("delete", detailSeason)}>🗑</button>
           )}
         </div>
@@ -523,7 +547,9 @@ export default function SeasonManager({ supabase, players, navigate }) {
 
         {scheduleLoading && <div className="loading">Loading schedule...</div>}
 
-        {schedule.map(({ week, matches }) => (
+        {schedule.map(({ week, matches }) => {
+          const byes = getByesForWeek(matches, seasonPlayerIds);
+          return (
           <div key={week} className="schedule-week">
             <div className="schedule-week-label">Week {week}</div>
             {matches.map(m => {
@@ -550,8 +576,15 @@ export default function SeasonManager({ supabase, players, navigate }) {
                 </div>
               );
             })}
+            {byes.length > 0 && (
+              <div className="schedule-bye-row">
+                <span className="schedule-bye-label">Bye:</span>
+                <span className="schedule-bye-names">{byes.join(", ")}</span>
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   }

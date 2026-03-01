@@ -131,12 +131,19 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
     const angleEnd   = angleStart + 18;
     const isCricket  = CRICKET_SET.has(num);
     const isEven     = i % 2 === 0;
-    const singleColor  = isEven ? "#1a1a2e" : "#f5e6c8";
-    const scoringColor = isEven ? "#2d6a4f" : "#e63946";
+    const inactive   = cricketOnly && !isCricket;
+
+    // In cricket-only mode, use consistent bright colors for active segments
+    // so all cricket numbers appear equally visible
+    const singleColor  = inactive ? (isEven ? "#1a1a2e" : "#f5e6c8")
+                       : cricketOnly ? "#2a2a3e"
+                       : (isEven ? "#1a1a2e" : "#f5e6c8");
+    const scoringColor = inactive ? (isEven ? "#2d6a4f" : "#e63946")
+                       : cricketOnly ? "#3d6a8f"
+                       : (isEven ? "#2d6a4f" : "#e63946");
     const hoverColor   = "#ffd60a";
     const midAngle     = angleStart + 9;
     const labelPos     = polarToXY(midAngle, 198, cx, cy);
-    const inactive     = cricketOnly && !isCricket;
 
     return (
       <g key={num} opacity={inactive ? 0.2 : 1}>
@@ -815,6 +822,12 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
           if (d.number === "Miss") {
             label = "Miss";
             cls = "dart-slot miss";
+          } else if (d.number === "Bull") {
+            label = "Bull";
+            cls = "dart-slot filled single";
+          } else if (d.number === "DBull") {
+            label = "D Bull";
+            cls = "dart-slot filled double";
           } else {
             const prefix = d.modifier === "double" ? "D" : d.modifier === "triple" ? "T" : "";
             label = `${prefix}${d.number}`;
@@ -939,14 +952,18 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       {isXO1 ? <XO1Scoreboard /> : <CricketScoreboard />}
 
       {isXO1 && (() => {
-        const myScore   = xo1Scores[currentPlayerId];
+        const myScore    = xo1Scores[currentPlayerId];
         const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
-        const hint = !turnBust && canCheckout(liveRemain) && liveRemain > 1
-          ? getCheckoutHint(liveRemain, darts.length)
+        // Show remaining checkout path from the current dart onwards
+        const path = !turnBust && canCheckout(liveRemain) && liveRemain > 1
+          ? CHECKOUTS[liveRemain]
           : null;
-        return hint ? (
+        const remainingPath = path
+          ? path.split(" ").slice(darts.length).join(" ")
+          : null;
+        return remainingPath ? (
           <div className="checkout-hint">
-            🎯 <span className="checkout-next">{hint}</span>
+            🎯 <span className="checkout-next">{remainingPath}</span>
             <span className="checkout-remain"> — {liveRemain} left</span>
           </div>
         ) : bustMessage ? (

@@ -1175,9 +1175,12 @@ html, body, #root {
   font-size: 1.1rem;
   color: var(--text);
   min-width: 2rem;
+  display: flex;
+  align-items: center;
 }
 
-.mark-cell:last-child { text-align: right; }
+.mark-cell:first-child { justify-content: flex-start; }
+.mark-cell:last-child  { justify-content: flex-end; text-align: right; }
 .mark-cell.closed { color: var(--green); }
 
 .cricket-leg-row {

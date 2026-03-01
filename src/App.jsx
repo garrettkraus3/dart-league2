@@ -12,6 +12,7 @@ import ActiveMatch from "./components/ActiveMatch";
 import Leaderboard from "./components/Leaderboard";
 import StatsPage from "./components/StatsPage";
 import AdminPanel from "./components/AdminPanel";
+import SeasonManager from "./components/SeasonManager";
 
 export default function App() {
   const [view, setView] = useState("home");
@@ -31,12 +32,13 @@ export default function App() {
 
   return (
     <div className="app">
-      {view === "home" && <HomeScreen navigate={navigate} />}
-      {view === "new" && <NewMatch players={players} supabase={supabase} navigate={navigate} />}
-      {view === "active" && <ActiveMatch match={activeMatch} players={players} supabase={supabase} navigate={navigate} />}
+      {view === "home"    && <HomeScreen navigate={navigate} />}
+      {view === "new"     && <NewMatch players={players} supabase={supabase} navigate={navigate} />}
+      {view === "active"  && <ActiveMatch match={activeMatch} players={players} supabase={supabase} navigate={navigate} />}
       {view === "leaderboard" && <Leaderboard supabase={supabase} navigate={navigate} />}
-      {view === "stats" && <StatsPage supabase={supabase} players={players} navigate={navigate} />}
-      {view === "admin" && <AdminPanel supabase={supabase} players={players} setPlayers={setPlayers} navigate={navigate} />}
+      {view === "stats"   && <StatsPage supabase={supabase} players={players} navigate={navigate} />}
+      {view === "admin"   && <AdminPanel supabase={supabase} players={players} setPlayers={setPlayers} navigate={navigate} />}
+      {view === "seasons" && <SeasonManager supabase={supabase} players={players} navigate={navigate} />}
     </div>
   );
 }

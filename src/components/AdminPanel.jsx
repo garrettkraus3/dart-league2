@@ -157,6 +157,9 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
         <button className={`toggle-btn ${tab === "players" ? "active" : ""}`} onClick={() => setTab("players")}>
           Players
         </button>
+        <button className="toggle-btn" onClick={() => navigate("seasons")}>
+          🏆 Seasons
+        </button>
       </div>
 
       {/* ── Matches tab ── */}

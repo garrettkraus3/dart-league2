@@ -155,3 +155,39 @@ CREATE POLICY "Allow all" ON players FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON matches FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON legs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON turns FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- SEASONS (run this migration if upgrading from earlier schema)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS seasons (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  weeks INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS season_players (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  season_id UUID REFERENCES seasons(id) ON DELETE CASCADE NOT NULL,
+  player_id UUID REFERENCES players(id) ON DELETE CASCADE NOT NULL,
+  UNIQUE(season_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS season_schedule (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  season_id UUID REFERENCES seasons(id) ON DELETE CASCADE NOT NULL,
+  week_number INTEGER NOT NULL,
+  match_id UUID REFERENCES matches(id) ON DELETE CASCADE NOT NULL
+);
+
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS season_id UUID REFERENCES seasons(id) ON DELETE SET NULL;
+
+ALTER TABLE seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE season_players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE season_schedule ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all" ON seasons FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON season_players FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON season_schedule FOR ALL USING (true) WITH CHECK (true);

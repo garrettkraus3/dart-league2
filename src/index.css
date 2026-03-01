@@ -1332,3 +1332,291 @@ html, body, #root {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Season Manager ── */
+.season-steps {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.season-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  opacity: 0.4;
+}
+
+.season-step.active {
+  opacity: 1;
+  border-color: var(--accent);
+  background: rgba(232,200,64,0.06);
+}
+
+.season-step.done {
+  opacity: 0.7;
+  border-color: var(--green);
+  background: rgba(61,220,132,0.05);
+}
+
+.step-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.step-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.player-select-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.player-select-btn {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.player-select-btn.selected {
+  border-color: var(--accent);
+  background: rgba(232,200,64,0.08);
+  color: var(--accent);
+}
+
+.weeks-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.weeks-btn {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.weeks-btn.selected {
+  border-color: var(--accent);
+  background: rgba(232,200,64,0.1);
+  color: var(--accent);
+}
+
+.form-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.season-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.season-summary-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.season-summary-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.schedule-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.preview-week {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.preview-week-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+}
+
+.preview-match {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.15rem 0;
+}
+
+.preview-more {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0.5rem;
+}
+
+/* ── Season detail / standings ── */
+.season-standings {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.standings-header {
+  background: var(--surface2);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.standings-row {
+  display: grid;
+  grid-template-columns: 1fr 2rem 2rem 4rem;
+  padding: 0.45rem 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 0.85rem;
+}
+
+.standings-label-row {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface2);
+}
+
+.standings-leader {
+  background: rgba(232,200,64,0.05);
+}
+
+.standings-name { font-weight: 600; }
+
+.standings-stat {
+  text-align: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+/* ── Schedule weeks ── */
+.schedule-week {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+
+.schedule-week-label {
+  background: var(--surface2);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.schedule-match-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  gap: 0.5rem;
+}
+
+.schedule-match-row.done {
+  opacity: 0.6;
+}
+
+.schedule-match-row:last-child {
+  border-bottom: none;
+}
+
+.schedule-match-players {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.schedule-winner {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.schedule-match-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.schedule-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.btn-play {
+  background: rgba(232,200,64,0.1);
+  border: 1px solid rgba(232,200,64,0.4);
+  color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-play:hover {
+  background: rgba(232,200,64,0.2);
+  border-color: var(--accent);
+}

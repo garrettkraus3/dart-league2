@@ -6,12 +6,12 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-// ─── Views ───────────────────────────────────────────────────────────────────
 import HomeScreen from "./components/HomeScreen";
 import NewMatch from "./components/NewMatch";
 import ActiveMatch from "./components/ActiveMatch";
 import Leaderboard from "./components/Leaderboard";
 import StatsPage from "./components/StatsPage";
+import AdminPanel from "./components/AdminPanel";
 
 export default function App() {
   const [view, setView] = useState("home");
@@ -36,6 +36,7 @@ export default function App() {
       {view === "active" && <ActiveMatch match={activeMatch} players={players} supabase={supabase} navigate={navigate} />}
       {view === "leaderboard" && <Leaderboard supabase={supabase} navigate={navigate} />}
       {view === "stats" && <StatsPage supabase={supabase} players={players} navigate={navigate} />}
+      {view === "admin" && <AdminPanel supabase={supabase} players={players} setPlayers={setPlayers} navigate={navigate} />}
     </div>
   );
 }

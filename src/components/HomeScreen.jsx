@@ -3,7 +3,7 @@ export default function HomeScreen({ navigate }) {
     <div className="home">
       <div className="home-header">
         <div className="bullseye-icon">🎯</div>
-        <h1>DART LEAGUE</h1>
+        <h1>SWEET RELEASE</h1>
         <p className="subtitle">Track. Compete. Dominate.</p>
       </div>
 
@@ -19,6 +19,9 @@ export default function HomeScreen({ navigate }) {
         <button className="btn-secondary big-btn" onClick={() => navigate("stats")}>
           <span className="btn-icon">📊</span>
           PLAYER STATS
+        </button>
+        <button className="btn-admin" onClick={() => navigate("admin")}>
+          ⚙️ Admin
         </button>
       </div>
     </div>

@@ -375,9 +375,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
               <span className={`status-badge ${s.status}`}>
                 {s.status === "active" ? "Active" : "Completed"}
               </span>
-              {authed && (
-                <button className="btn-delete season-delete-btn" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}>🗑</button>
-              )}
+              <button className="btn-delete season-delete-btn" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}>🗑</button>
             </div>
           </div>
         ))}
@@ -475,16 +473,28 @@ export default function SeasonManager({ supabase, players, navigate }) {
             </div>
 
             <div className="schedule-preview">
-              {previewWeeks.slice(0, previewCount).map((week, wi) => (
-                <div key={wi} className="preview-week">
-                  <div className="preview-week-label">Week {wi + 1}</div>
-                  {week.map(([a, b], mi) => (
-                    <div key={mi} className="preview-match">
-                      {getPlayerName(a)} <span className="vs-small">vs</span> {getPlayerName(b)}
-                    </div>
-                  ))}
-                </div>
-              ))}
+              {previewWeeks.slice(0, previewCount).map((week, wi) => {
+                // Compute byes: selected players not appearing in any match this week
+                const playingIds = new Set(week.flatMap(([a, b]) => [a, b]));
+                const byeNames = selectedPlayers
+                  .filter(id => !playingIds.has(id))
+                  .map(id => getPlayerName(id));
+                return (
+                  <div key={wi} className="preview-week">
+                    <div className="preview-week-label">Week {wi + 1}</div>
+                    {week.map(([a, b], mi) => (
+                      <div key={mi} className="preview-match">
+                        {getPlayerName(a)} <span className="vs-small">vs</span> {getPlayerName(b)}
+                      </div>
+                    ))}
+                    {byeNames.length > 0 && (
+                      <div className="preview-bye">
+                        <span className="schedule-bye-label">Bye:</span> {byeNames.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {previewCount < numWeeks && (
                 <button className="preview-more-btn"
                   onClick={() => setPreviewCount(c => Math.min(c + 1, numWeeks))}>

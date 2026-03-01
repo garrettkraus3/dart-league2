@@ -941,10 +941,13 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       {confirmAbandon && (
         <div className="abandon-overlay">
           <div className="abandon-card">
-            <h3>Abandon Match?</h3>
-            <p>This will permanently delete all data for this match. It cannot be undone.</p>
+            <h3>Leave Match?</h3>
+            <p>What would you like to do?</p>
+            <button className="btn-secondary big-btn" onClick={() => { setConfirmAbandon(false); navigate("home"); }}>
+              💾 Save &amp; Resume Later
+            </button>
             <button className="btn-danger big-btn" onClick={abandonMatch} disabled={loading}>
-              {loading ? "Deleting..." : "Yes, Delete It"}
+              {loading ? "Deleting..." : "🗑 Delete Match"}
             </button>
             <button className="btn-secondary big-btn" onClick={() => setConfirmAbandon(false)}>Cancel</button>
           </div>
@@ -1003,7 +1006,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       }
 
       <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>
-        Abandon Match
+        Leave Match
       </button>
     </div>
   );

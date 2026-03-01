@@ -1683,3 +1683,13 @@ html, body, #root {
 .season-filter-label strong {
   color: var(--accent);
 }
+
+/* ── Preview bye row ── */
+.preview-bye {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 0.2rem;
+  padding-top: 0.2rem;
+  border-top: 1px dashed var(--border);
+}

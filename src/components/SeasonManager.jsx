@@ -62,13 +62,13 @@ function buildWeeklySchedule(playerIds, numWeeks) {
   return weeks;
 }
 
-export default function SeasonManager({ supabase, players, navigate, setGlobalLoading }) {
+export default function SeasonManager({ supabase, players, navigate, setGlobalLoading, isAdminAuthed = false, embedded = false }) {
   const [view, setView]   = useState("list");
   const [seasons, setSeasons] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Auth for creating/deleting
-  const [authed, setAuthed]         = useState(false);
+  // Auth — if already authed from AdminPanel, start authed
+  const [authed, setAuthed]         = useState(isAdminAuthed);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authInput, setAuthInput]   = useState("");
   const [authError, setAuthError]   = useState("");
@@ -352,12 +352,14 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   // LIST
   if (view === "list") {
     return (
-      <div className="screen">
+      <div className={embedded ? "" : "screen"}>
         {showAuthModal && <AuthModal />}
-        <div className="screen-header">
-          <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
-          <h2>🏆 Seasons</h2>
-        </div>
+        {!embedded && (
+          <div className="screen-header">
+            <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
+            <h2>🏆 Seasons</h2>
+          </div>
+        )}
 
         <button className="btn-primary big-btn" onClick={() => requireAdmin("create")}>
           + New Season
@@ -401,11 +403,16 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   // CREATE
   if (view === "create") {
     return (
-      <div className="screen">
-        <div className="screen-header">
-          <button className="back-btn" onClick={() => setView("list")}>← Back</button>
-          <h2>New Season</h2>
-        </div>
+      <div className={embedded ? "" : "screen"}>
+        {!embedded && (
+          <div className="screen-header">
+            <button className="back-btn" onClick={() => setView("list")}>← Back</button>
+            <h2>New Season</h2>
+          </div>
+        )}
+        {embedded && (
+          <button className="back-btn" style={{ marginBottom: "0.5rem" }} onClick={() => setView("list")}>← Back to Seasons</button>
+        )}
 
         <div className="season-steps">
           {["Name","Players","Weeks","Confirm"].map((label, i) => (
@@ -523,7 +530,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   // DETAIL
   if (view === "detail" && detailSeason) {
     return (
-      <div className="screen">
+      <div className={embedded ? "" : "screen"}>
         {showAuthModal && <AuthModal />}
         {confirmDeleteSeason && (
           <div className="abandon-overlay">
@@ -535,13 +542,11 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
             </div>
           </div>
         )}
-        <div className="screen-header">
+        <div className={embedded ? "screen-header" : "screen-header"}>
           <button className="back-btn" onClick={() => { setView("list"); loadSeasons(); }}>← Back</button>
           <h2>{detailSeason.name}</h2>
-          {authed && (
-            <button className="btn-delete season-delete-btn" style={{ marginLeft: "auto" }}
-              onClick={() => requireAdmin("delete", detailSeason)}>🗑</button>
-          )}
+          <button className="btn-delete season-delete-btn" style={{ marginLeft: "auto" }}
+            onClick={() => requireAdmin("delete", detailSeason)}>🗑</button>
         </div>
 
         <div className="season-standings">

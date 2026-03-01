@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import SeasonManager from "./SeasonManager";
 
 const ADMIN_PASSWORD = "dartsarelife";
 
@@ -12,7 +13,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
   const [matches, setMatches] = useState([]);
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [resumeLoading, setResumeLoading] = useState(null); // match id being resumed
+  const [resumeLoading, setResumeLoading] = useState(null);
 
   // Players state
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -163,10 +164,22 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
         <button className={`toggle-btn ${tab === "players" ? "active" : ""}`} onClick={() => setTab("players")}>
           Players
         </button>
-        <button className="toggle-btn" onClick={() => navigate("seasons")}>
+        <button className={`toggle-btn ${tab === "seasons" ? "active" : ""}`} onClick={() => setTab("seasons")}>
           🏆 Seasons
         </button>
       </div>
+
+      {/* ── Seasons tab ── */}
+      {tab === "seasons" && (
+        <SeasonManager
+          supabase={supabase}
+          players={players}
+          navigate={navigate}
+          setGlobalLoading={setGlobalLoading}
+          isAdminAuthed={authed}
+          embedded={true}
+        />
+      )}
 
       {/* ── Matches tab ── */}
       {tab === "matches" && (

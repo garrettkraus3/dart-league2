@@ -2,14 +2,7 @@ import { useState } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CRICKET_NUMBERS = [20, 19, 18, 17, 16, 15, "Bull"];
-const LEG_SCHEDULE    = ["501", "501", "cricket", "cricket", "choice"];
 const NUMBERS         = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,"Bull"];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function getLegGameType(legNumber, chosenLeg5) {
-  const s = LEG_SCHEDULE[legNumber - 1];
-  return s === "choice" ? (chosenLeg5 || null) : s;
-}
 
 function dartValue(number, modifier) {
   if (number === null) return 0;
@@ -359,11 +352,11 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     [match.match.player1_id]: 0,
     [match.match.player2_id]: 0,
   });
-  const [chosenLeg5Type, setChosenLeg5Type]       = useState(null);
-  const [awaitingLeg5Choice, setAwaitingLeg5Choice] = useState(false);
+  const [currentGameType, setCurrentGameType] = useState(initialLeg?.game_type || null);
+  const [legGameTypes, setLegGameTypes]       = useState({}); // legNumber → "501"|"cricket"
+  const [awaitingGameChoice, setAwaitingGameChoice] = useState(!initialLeg?.game_type);
   const [awaitingFirstThrow, setAwaitingFirstThrow] = useState(true);
 
-  const currentGameType = getLegGameType(legNumber, chosenLeg5Type);
   const isXO1 = currentGameType === "501";
 
   // 501 state
@@ -396,7 +389,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const [history, setHistory] = useState([]);
 
   const captureSnapshot = (currentDarts, turnIdToDelete = null) => ({
-    darts: currentDarts,          // darts array at the moment of snapshot
+    darts: currentDarts,
     turnBust: false,
     turnWin: false,
     bustMessage: "",
@@ -407,9 +400,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     legScores: { ...legScores },
     legNumber,
     currentLeg,
+    currentGameType,
+    legGameTypes: { ...legGameTypes },
     awaitingFirstThrow,
-    awaitingLeg5Choice,
-    chosenLeg5Type,
+    awaitingGameChoice,
     turnIdToDelete,
   });
 
@@ -439,9 +433,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setLegScores(snap.legScores);
     setLegNumber(snap.legNumber);
     setCurrentLeg(snap.currentLeg);
+    setCurrentGameType(snap.currentGameType);
+    setLegGameTypes(snap.legGameTypes);
     setAwaitingFirstThrow(snap.awaitingFirstThrow);
-    setAwaitingLeg5Choice(snap.awaitingLeg5Choice);
-    setChosenLeg5Type(snap.chosenLeg5Type);
+    setAwaitingGameChoice(snap.awaitingGameChoice);
   };
 
   const p1 = players.find(p => p.id === match.match.player1_id);
@@ -699,7 +694,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
         ? match.match.player1_id
         : p2Legs > p1Legs
         ? match.match.player2_id
-        : winnerId; // tiebreaker: last leg winner
+        : winnerId;
       await supabase.from("matches").update({
         winner_id: matchWinnerId,
         status: "completed",
@@ -712,27 +707,18 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
     const nextLegNum = legNumber + 1;
     setLegNumber(nextLegNum);
-    const loserId  = playerOrder.find(id => id !== winnerId);
-    const loserIdx = playerOrder.indexOf(loserId);
 
-    if (nextLegNum === 5) {
-      const { data: newLeg } = await supabase.from("legs").insert({
-        match_id: matchData.id, leg_number: 5, starting_score: null, game_type: null,
-      }).select().single();
-      setCurrentLeg(newLeg);
-      setAwaitingLeg5Choice(true);
-    } else {
-      const nextType = LEG_SCHEDULE[nextLegNum - 1];
-      const { data: newLeg } = await supabase.from("legs").insert({
-        match_id: matchData.id,
-        leg_number: nextLegNum,
-        starting_score: nextType === "501" ? 501 : null,
-        game_type: nextType,
-      }).select().single();
-      setCurrentLeg(newLeg);
-      setCurrentPlayerIdx(loserIdx);
-    }
+    // Create the next leg in DB without a game_type — will be set when players choose
+    const { data: newLeg } = await supabase.from("legs").insert({
+      match_id: matchData.id,
+      leg_number: nextLegNum,
+      starting_score: null,
+      game_type: null,
+    }).select().single();
+    setCurrentLeg(newLeg);
 
+    // Reset game state
+    setCurrentGameType(null);
     setTurnNumber(1);
     setDarts([]);
     setTurnBust(false);
@@ -740,6 +726,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setBustMessage("");
     setXo1Scores({ [match.match.player1_id]: 501, [match.match.player2_id]: 501 });
     setCricketState(initCricket());
+
+    // Always ask which game to play next, then who throws first
+    setAwaitingGameChoice(true);
+    setAwaitingFirstThrow(true);
   };
 
   const abandonMatch = async () => {
@@ -751,44 +741,58 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     navigate("home");
   };
 
+  const chooseGame = async (gameType) => {
+    setCurrentGameType(gameType);
+    setLegGameTypes(prev => ({ ...prev, [legNumber]: gameType }));
+    // Update the leg in DB with chosen game type
+    await supabase.from("legs").update({
+      game_type: gameType,
+      starting_score: gameType === "501" ? 501 : null,
+    }).eq("id", currentLeg.id);
+    setAwaitingGameChoice(false);
+    // awaitingFirstThrow is already true, so next screen is "who throws first"
+  };
+
   const chooseFirstThrow = (playerId) => {
     setCurrentPlayerIdx(playerOrder.indexOf(playerId));
     setAwaitingFirstThrow(false);
   };
 
-  // ── Who throws first ───────────────────────────────────────────────────────
-  if (awaitingFirstThrow) {
+  // ── Game choice screen (shown before every leg) ────────────────────────────
+  if (awaitingGameChoice) {
     return (
       <div className="screen">
-        <div className="screen-header"><h2>{legNumber === 5 ? "⚡ Leg 5 — Decider" : "Leg 1"}</h2></div>
+        <div className="screen-header">
+          <h2>Leg {legNumber} of 5</h2>
+        </div>
         <div className="leg5-choice">
-          <p className="leg5-sub">Who throws first?</p>
-          {legNumber === 5 && (
-            <div className="leg5-scores">
-              <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
-              <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
-            </div>
-          )}
-          <button className="btn-primary big-btn" onClick={() => chooseFirstThrow(match.match.player1_id)}>🎯 {p1?.name}</button>
-          <button className="btn-secondary big-btn" onClick={() => chooseFirstThrow(match.match.player2_id)}>🎯 {p2?.name}</button>
+          <div className="leg5-scores">
+            <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
+            <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
+          </div>
+          <p className="leg5-sub">What are you playing?</p>
+          <button className="btn-primary big-btn" onClick={() => chooseGame("501")}>🎯 501</button>
+          <button className="btn-secondary big-btn" onClick={() => chooseGame("cricket")}>🏏 Cricket</button>
         </div>
       </div>
     );
   }
 
-  // ── Leg 5 game choice ──────────────────────────────────────────────────────
-  if (awaitingLeg5Choice) {
+  // ── Who throws first ───────────────────────────────────────────────────────
+  if (awaitingFirstThrow) {
     return (
       <div className="screen">
-        <div className="screen-header"><h2>⚡ Leg 5 — Choose Game</h2></div>
+        <div className="screen-header">
+          <h2>Leg {legNumber} · {currentGameType === "501" ? "501" : "Cricket"}</h2>
+        </div>
         <div className="leg5-choice">
-          <p className="leg5-sub">What are you playing?</p>
+          <p className="leg5-sub">Who throws first?</p>
           <div className="leg5-scores">
             <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
             <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
           </div>
-          <button className="btn-primary big-btn" onClick={() => { setChosenLeg5Type("501"); setAwaitingLeg5Choice(false); setAwaitingFirstThrow(true); }}>🎯 501</button>
-          <button className="btn-secondary big-btn" onClick={() => { setChosenLeg5Type("cricket"); setAwaitingLeg5Choice(false); setAwaitingFirstThrow(true); }}>🏏 Cricket</button>
+          <button className="btn-primary big-btn" onClick={() => chooseFirstThrow(match.match.player1_id)}>🎯 {p1?.name}</button>
+          <button className="btn-secondary big-btn" onClick={() => chooseFirstThrow(match.match.player2_id)}>🎯 {p2?.name}</button>
         </div>
       </div>
     );
@@ -916,14 +920,15 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Leg progress ───────────────────────────────────────────────────────────
   const LegProgress = () => (
     <div className="leg-progress">
-      {LEG_SCHEDULE.map((type, i) => {
-        const num    = i + 1;
+      {[1,2,3,4,5].map(num => {
         const done   = num < legNumber;
         const active = num === legNumber;
+        const gameType = legGameTypes[num] || (num === legNumber ? currentGameType : null);
+        const typeLabel = gameType === "501" ? "501" : gameType === "cricket" ? "CR" : "?";
         return (
-          <div key={i} className={`leg-pip ${done ? "done" : ""} ${active ? "active" : ""}`}>
+          <div key={num} className={`leg-pip ${done ? "done" : ""} ${active ? "active" : ""}`}>
             <span className="pip-num">{num}</span>
-            <span className="pip-type">{type === "choice" ? "?" : type === "501" ? "501" : "CR"}</span>
+            <span className="pip-type">{typeLabel}</span>
           </div>
         );
       })}

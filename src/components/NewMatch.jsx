@@ -15,9 +15,6 @@ export default function NewMatch({ players, supabase, navigate }) {
     setLoading(true);
     setError("");
 
-    // First leg is always 501
-    const firstLegType = "501";
-
     const { data: match, error: mErr } = await supabase
       .from("matches")
       .insert({
@@ -36,8 +33,8 @@ export default function NewMatch({ players, supabase, navigate }) {
       .insert({
         match_id: match.id,
         leg_number: 1,
-        starting_score: 501,
-        game_type: firstLegType,
+        starting_score: null,
+        game_type: null,
       })
       .select()
       .single();
@@ -57,14 +54,7 @@ export default function NewMatch({ players, supabase, navigate }) {
 
       <div className="match-format-card">
         <div className="format-title">Match Format</div>
-        <div className="format-legs">
-          {["Leg 1: 501", "Leg 2: 501", "Leg 3: Cricket", "Leg 4: Cricket", "Leg 5: Choice"].map((l, i) => (
-            <div key={i} className="format-leg">
-              <span className="format-leg-num">{i + 1}</span>
-              <span>{l.split(": ")[1]}</span>
-            </div>
-          ))}
-        </div>
+        <div className="format-sub" style={{ padding: "0.5rem 0" }}>5 legs · choose 501 or Cricket before each leg</div>
         <div className="format-sub">All 5 legs are played — most legs wins</div>
       </div>
 

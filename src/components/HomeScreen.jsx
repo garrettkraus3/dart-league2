@@ -1,3 +1,5 @@
+const APP_VERSION = "V2.2026.02.28.17.05.00";
+
 export default function HomeScreen({ navigate }) {
   return (
     <div className="home">
@@ -24,6 +26,8 @@ export default function HomeScreen({ navigate }) {
           ⚙️ Admin
         </button>
       </div>
+
+      <div className="version-stamp">{APP_VERSION}</div>
     </div>
   );
 }

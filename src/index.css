@@ -1152,7 +1152,7 @@ html, body, #root {
   color: var(--accent);
 }
 
-.cricket-pts-row .cricket-pts:last-child { text-align: right; }
+.cricket-points-row .cricket-pts:last-child { text-align: right; }
 .cricket-pts-label { text-align: center; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
 
 .cricket-score-row {

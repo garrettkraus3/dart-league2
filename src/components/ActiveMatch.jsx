@@ -133,13 +133,12 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
     const isEven     = i % 2 === 0;
     const inactive   = cricketOnly && !isCricket;
 
-    // In cricket-only mode, use consistent bright colors for active segments
-    // so all cricket numbers appear equally visible
+    // In cricket-only mode, use consistent light/white colors for all active segments
     const singleColor  = inactive ? (isEven ? "#1a1a2e" : "#f5e6c8")
-                       : cricketOnly ? "#2a2a3e"
+                       : cricketOnly ? "#e8e0d0"
                        : (isEven ? "#1a1a2e" : "#f5e6c8");
     const scoringColor = inactive ? (isEven ? "#2d6a4f" : "#e63946")
-                       : cricketOnly ? "#3d6a8f"
+                       : cricketOnly ? "#c0392b"
                        : (isEven ? "#2d6a4f" : "#e63946");
     const hoverColor   = "#ffd60a";
     const midAngle     = angleStart + 9;
@@ -954,12 +953,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       {isXO1 && (() => {
         const myScore    = xo1Scores[currentPlayerId];
         const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
-        // Show remaining checkout path from the current dart onwards
-        const path = !turnBust && canCheckout(liveRemain) && liveRemain > 1
+        // Look up checkout for the *current* remaining score — this already accounts
+        // for darts thrown this turn, so always show the full path from here
+        const remainingPath = !turnBust && canCheckout(liveRemain) && liveRemain > 1
           ? CHECKOUTS[liveRemain]
-          : null;
-        const remainingPath = path
-          ? path.split(" ").slice(darts.length).join(" ")
           : null;
         return remainingPath ? (
           <div className="checkout-hint">

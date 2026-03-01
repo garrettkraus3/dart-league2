@@ -62,7 +62,7 @@ function buildWeeklySchedule(playerIds, numWeeks) {
   return weeks;
 }
 
-export default function SeasonManager({ supabase, players, navigate }) {
+export default function SeasonManager({ supabase, players, navigate, setGlobalLoading }) {
   const [view, setView]   = useState("list");
   const [seasons, setSeasons] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -154,6 +154,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
     if (selectedPlayers.length < 2) { setCreateError("Need at least 2 players."); return; }
     setCreating(true);
     setCreateError("");
+    setGlobalLoading(true);
 
     const { data: season, error: sErr } = await supabase
       .from("seasons")
@@ -182,6 +183,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
     }
 
     setCreating(false);
+    setGlobalLoading(false);
     resetCreate();
     setView("list");
     loadSeasons();
@@ -189,6 +191,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
 
   // ── Delete season ──────────────────────────────────────────────────────────
   const deleteSeason = async (season) => {
+    setGlobalLoading(true);
     // Cascade via DB: season_schedule and season_players delete automatically.
     // Matches linked to this season: delete turns, legs, then matches.
     const { data: schedRows } = await supabase
@@ -205,6 +208,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
     }
 
     await supabase.from("seasons").delete().eq("id", season.id);
+    setGlobalLoading(false);
     setConfirmDeleteSeason(null);
     if (view === "detail") setView("list");
     loadSeasons();

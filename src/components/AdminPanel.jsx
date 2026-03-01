@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 const ADMIN_PASSWORD = "dartsarelife";
 
-export default function AdminPanel({ supabase, players, setPlayers, navigate }) {
+export default function AdminPanel({ supabase, players, setPlayers, navigate, setGlobalLoading }) {
   const [authed, setAuthed] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -45,9 +45,11 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
   }, [authed, tab]);
 
   const deleteMatch = async (match) => {
+    setGlobalLoading(true);
     await supabase.from("turns").delete().eq("match_id", match.id);
     await supabase.from("legs").delete().eq("match_id", match.id);
     await supabase.from("matches").delete().eq("id", match.id);
+    setGlobalLoading(false);
     setConfirmDelete(null);
     loadMatches();
   };
@@ -78,6 +80,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
     const name = newPlayerName.trim();
     if (!name) return setPlayerError("Enter a name");
     setPlayerLoading(true);
+    setGlobalLoading(true);
     setPlayerError("");
     const { error } = await supabase.from("players").insert({ name });
     if (error) {
@@ -88,9 +91,11 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
       if (data) setPlayers(data);
     }
     setPlayerLoading(false);
+    setGlobalLoading(false);
   };
 
   const deletePlayer = async (player) => {
+    setGlobalLoading(true);
     const { error } = await supabase.from("players").delete().eq("id", player.id);
     if (error) {
       setPlayerError("Can't delete — player has match history. Remove their matches first.");
@@ -98,6 +103,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate }) 
       const { data } = await supabase.from("players").select("*").order("name");
       if (data) setPlayers(data);
     }
+    setGlobalLoading(false);
     setConfirmDeletePlayer(null);
   };
 

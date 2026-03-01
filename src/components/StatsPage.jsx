@@ -72,9 +72,9 @@ export default function StatsPage({ supabase, players, navigate }) {
 
       {stats && !loading && (
         <div className="stats-sections">
-          {/* 501 Stats */}
+          {/* 01 Stats */}
           <div className="stats-card">
-            <h3>501 / 301 Stats</h3>
+            <h3>01 Stats</h3>
             <div className="stats-grid">
               <div className="stat-item"><span className="stat-label">Matches</span><span className="stat-val">{stats.xo1?.matches_played ?? 0}</span></div>
               <div className="stat-item"><span className="stat-label">Wins</span><span className="stat-val green">{stats.xo1?.matches_won ?? 0}</span></div>
@@ -82,7 +82,7 @@ export default function StatsPage({ supabase, players, navigate }) {
               <div className="stat-item"><span className="stat-label">3-Dart Avg</span><span className="stat-val highlight">{stats.xo1?.three_dart_avg ?? "—"}</span></div>
               <div className="stat-item"><span className="stat-label">High Score</span><span className="stat-val">{stats.xo1?.high_score ?? "—"}</span></div>
               <div className="stat-item"><span className="stat-label">180s</span><span className="stat-val">{stats.xo1?.scores_180 ?? 0}</span></div>
-              <div className="stat-item"><span className="stat-label">140+</span><span className="stat-val">{stats.xo1?.scores_140_plus ?? 0}</span></div>
+              <div className="stat-item"><span className="stat-label">150+</span><span className="stat-val">{stats.xo1?.scores_150_plus ?? 0}</span></div>
               <div className="stat-item"><span className="stat-label">100+</span><span className="stat-val">{stats.xo1?.scores_100_plus ?? 0}</span></div>
               <div className="stat-item"><span className="stat-label">Checkout %</span><span className="stat-val highlight">{stats.xo1?.checkout_pct ?? "—"}%</span></div>
               <div className="stat-item"><span className="stat-label">High Checkout</span><span className="stat-val">{stats.xo1?.high_checkout ?? "—"}</span></div>

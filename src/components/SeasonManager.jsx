@@ -1,93 +1,129 @@
 import { useState, useEffect } from "react";
 
-// ── Round-robin schedule generator ────────────────────────────────────────────
-// Returns array of rounds, each round is array of [playerA, playerB] matchups.
-// Uses the standard "rotate" algorithm for balanced round-robin.
-// With N players (even), each round has N/2 matches.
-// With N players (odd), add a "bye" player, each round has (N-1)/2 matches.
-function generateRoundRobin(playerIds) {
-  const ids = [...playerIds];
-  const hasBye = ids.length % 2 !== 0;
-  if (hasBye) ids.push("BYE");
-  const n = ids.length;
-  const rounds = [];
+const ADMIN_PASSWORD = "dartsarelife";
 
-  for (let r = 0; r < n - 1; r++) {
-    const round = [];
-    for (let i = 0; i < n / 2; i++) {
-      const a = ids[i];
-      const b = ids[n - 1 - i];
-      if (a !== "BYE" && b !== "BYE") {
-        round.push([a, b]);
+// ── Schedule generator ───────────────────────────────────────────────────────
+// Each week: every player plays exactly 3 opponents (or 2 if odd player count).
+// We build weeks greedily, always pairing players who have played each other least.
+function buildWeeklySchedule(playerIds, numWeeks) {
+  const n = playerIds.length;
+  // Track how many times each pair has played
+  const pairCount = {};
+  const pairKey = (a, b) => [a, b].sort().join("|");
+
+  const weeks = [];
+
+  for (let w = 0; w < numWeeks; w++) {
+    const week = [];
+    // Each player should play 3 matches this week; track remaining slots
+    const slotsLeft = {};
+    playerIds.forEach(p => { slotsLeft[p] = 3; });
+
+    // Build matches greedily: repeatedly find the pair with fewest historical
+    // meetings that both still have slots open, until no valid pairs remain.
+    let madeProgress = true;
+    while (madeProgress) {
+      madeProgress = false;
+      // Find all valid pairs (both have slots left > 0)
+      let bestPair = null;
+      let bestCount = Infinity;
+
+      const available = playerIds.filter(p => slotsLeft[p] > 0);
+      for (let i = 0; i < available.length; i++) {
+        for (let j = i + 1; j < available.length; j++) {
+          const a = available[i], b = available[j];
+          // Don't play same opponent twice in same week
+          const alreadyThisWeek = week.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a)
+          );
+          if (alreadyThisWeek) continue;
+          const key = pairKey(a, b);
+          const cnt = pairCount[key] || 0;
+          if (cnt < bestCount) {
+            bestCount = cnt;
+            bestPair = [a, b];
+          }
+        }
+      }
+
+      if (bestPair) {
+        const [a, b] = bestPair;
+        week.push([a, b]);
+        slotsLeft[a]--;
+        slotsLeft[b]--;
+        const key = pairKey(a, b);
+        pairCount[key] = (pairCount[key] || 0) + 1;
+        madeProgress = true;
       }
     }
-    rounds.push(round);
-    // Rotate all except ids[0]
-    ids.splice(1, 0, ids.pop());
-  }
-  return rounds;
-}
 
-// Distribute rounds into weeks of exactly 3 matches each.
-// Repeats the round-robin cycle as needed to fill all weeks.
-// Returns: array of weeks, each week is array of [p1, p2] pairs (exactly 3).
-function buildWeeklySchedule(playerIds, numWeeks) {
-  // Generate one full cycle of round-robin rounds
-  const rounds = generateRoundRobin(playerIds);
-
-  // Flatten all matchups across rounds, cycling as needed
-  const allMatchups = [];
-  let cycleCount = 0;
-  while (allMatchups.length < numWeeks * 3) {
-    const round = rounds[cycleCount % rounds.length];
-    // Spread round matchups into allMatchups one by one
-    for (const pair of round) {
-      allMatchups.push(pair);
-      if (allMatchups.length >= numWeeks * 3) break;
-    }
-    cycleCount++;
-  }
-
-  // Chunk into weeks of 3
-  const weeks = [];
-  for (let w = 0; w < numWeeks; w++) {
-    weeks.push(allMatchups.slice(w * 3, w * 3 + 3));
+    weeks.push(week);
   }
   return weeks;
 }
 
 export default function SeasonManager({ supabase, players, navigate }) {
-  const [view, setView]       = useState("list");  // "list" | "create" | "detail"
+  const [view, setView]   = useState("list");
   const [seasons, setSeasons] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeSeason, setActiveSeason] = useState(null);
 
-  // Create form state
-  const [step, setStep]             = useState(1); // 1=name, 2=players, 3=weeks, 4=confirm
+  // Auth for creating/deleting
+  const [authed, setAuthed]         = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInput, setAuthInput]   = useState("");
+  const [authError, setAuthError]   = useState("");
+  const [pendingAction, setPendingAction] = useState(null); // "create" | "delete"
+  const [pendingDeleteSeason, setPendingDeleteSeason] = useState(null);
+
+  // Create form
+  const [step, setStep]             = useState(1);
   const [seasonName, setSeasonName] = useState("");
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [numWeeks, setNumWeeks]     = useState(8);
+  const [previewCount, setPreviewCount] = useState(3);
   const [creating, setCreating]     = useState(false);
   const [createError, setCreateError] = useState("");
 
-  // Detail view state
+  // Detail view
   const [detailSeason, setDetailSeason]   = useState(null);
-  const [schedule, setSchedule]           = useState([]); // [{week, matches:[{id,p1,p2,status,winner}]}]
+  const [schedule, setSchedule]           = useState([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [standings, setStandings]         = useState([]);
+  const [confirmDeleteSeason, setConfirmDeleteSeason] = useState(null);
 
-  useEffect(() => {
-    loadSeasons();
-  }, []);
+  useEffect(() => { loadSeasons(); }, []);
 
   const loadSeasons = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("seasons")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("seasons").select("*").order("created_at", { ascending: false });
     if (data) setSeasons(data);
     setLoading(false);
+  };
+
+  // ── Auth modal ─────────────────────────────────────────────────────────────
+  const requireAdmin = (action, deleteTarget = null) => {
+    if (authed) {
+      if (action === "create") { resetCreate(); setView("create"); }
+      if (action === "delete") setConfirmDeleteSeason(deleteTarget);
+      return;
+    }
+    setPendingAction(action);
+    setPendingDeleteSeason(deleteTarget);
+    setShowAuthModal(true);
+    setAuthInput("");
+    setAuthError("");
+  };
+
+  const submitAuth = () => {
+    if (authInput === ADMIN_PASSWORD) {
+      setAuthed(true);
+      setShowAuthModal(false);
+      if (pendingAction === "create") { resetCreate(); setView("create"); }
+      if (pendingAction === "delete") setConfirmDeleteSeason(pendingDeleteSeason);
+    } else {
+      setAuthError("Wrong password.");
+      setAuthInput("");
+    }
   };
 
   // ── Create season ──────────────────────────────────────────────────────────
@@ -96,6 +132,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
     setSeasonName("");
     setSelectedPlayers([]);
     setNumWeeks(8);
+    setPreviewCount(3);
     setCreateError("");
   };
 
@@ -105,51 +142,39 @@ export default function SeasonManager({ supabase, players, navigate }) {
     );
   };
 
+  const previewWeeks = selectedPlayers.length >= 2
+    ? buildWeeklySchedule(selectedPlayers, numWeeks)
+    : [];
+
+  const matchesPerWeek = previewWeeks[0]?.length || 0;
+  const totalMatches   = previewWeeks.reduce((s, w) => s + w.length, 0);
+
   const createSeason = async () => {
-    if (selectedPlayers.length < 2) {
-      setCreateError("Need at least 2 players.");
-      return;
-    }
+    if (selectedPlayers.length < 2) { setCreateError("Need at least 2 players."); return; }
     setCreating(true);
     setCreateError("");
 
-    // 1. Insert season
     const { data: season, error: sErr } = await supabase
       .from("seasons")
       .insert({ name: seasonName.trim(), weeks: numWeeks })
-      .select()
-      .single();
+      .select().single();
     if (sErr) { setCreateError(sErr.message); setCreating(false); return; }
 
-    // 2. Insert season_players
     await supabase.from("season_players").insert(
       selectedPlayers.map(pid => ({ season_id: season.id, player_id: pid }))
     );
 
-    // 3. Generate weekly schedule
     const weeks = buildWeeklySchedule(selectedPlayers, numWeeks);
 
-    // 4. Create matches and schedule rows for each week
     for (let w = 0; w < weeks.length; w++) {
-      const weekMatches = weeks[w];
-      for (const [p1id, p2id] of weekMatches) {
+      for (const [p1id, p2id] of weeks[w]) {
         const { data: match } = await supabase
           .from("matches")
-          .insert({
-            game_type: "501", // placeholder — actual game type chosen at play time
-            legs_to_win: 3,
-            player1_id: p1id,
-            player2_id: p2id,
-            season_id: season.id,
-          })
-          .select()
-          .single();
-
+          .insert({ game_type: "501", legs_to_win: 5, player1_id: p1id, player2_id: p2id, season_id: season.id })
+          .select().single();
         if (match) {
           await supabase.from("season_schedule").insert({
-            season_id: season.id,
-            week_number: w + 1,
-            match_id: match.id,
+            season_id: season.id, week_number: w + 1, match_id: match.id,
           });
         }
       }
@@ -161,30 +186,48 @@ export default function SeasonManager({ supabase, players, navigate }) {
     loadSeasons();
   };
 
+  // ── Delete season ──────────────────────────────────────────────────────────
+  const deleteSeason = async (season) => {
+    // Cascade via DB: season_schedule and season_players delete automatically.
+    // Matches linked to this season: delete turns, legs, then matches.
+    const { data: schedRows } = await supabase
+      .from("season_schedule")
+      .select("match_id")
+      .eq("season_id", season.id);
+
+    if (schedRows) {
+      for (const row of schedRows) {
+        await supabase.from("turns").delete().eq("match_id", row.match_id);
+        await supabase.from("legs").delete().eq("match_id", row.match_id);
+        await supabase.from("matches").delete().eq("id", row.match_id);
+      }
+    }
+
+    await supabase.from("seasons").delete().eq("id", season.id);
+    setConfirmDeleteSeason(null);
+    if (view === "detail") setView("list");
+    loadSeasons();
+  };
+
   // ── Load season detail ─────────────────────────────────────────────────────
   const openSeason = async (season) => {
     setDetailSeason(season);
     setView("detail");
     setScheduleLoading(true);
 
-    // Load schedule with match + player details
     const { data: schedRows } = await supabase
       .from("season_schedule")
       .select(`
-        week_number,
-        match_id,
+        week_number, match_id,
         match:match_id (
           id, status, player1_id, player2_id, player1_legs, player2_legs, winner_id,
-          p1:player1_id(id, name),
-          p2:player2_id(id, name),
-          winner:winner_id(name)
+          p1:player1_id(id, name), p2:player2_id(id, name), winner:winner_id(name)
         )
       `)
       .eq("season_id", season.id)
       .order("week_number", { ascending: true });
 
     if (schedRows) {
-      // Group by week
       const weekMap = {};
       for (const row of schedRows) {
         const w = row.week_number;
@@ -196,7 +239,7 @@ export default function SeasonManager({ supabase, players, navigate }) {
         .map(([week, matches]) => ({ week: Number(week), matches }));
       setSchedule(built);
 
-      // Build standings from completed matches
+      // Build standings
       const playerMap = {};
       for (const { matches } of built) {
         for (const m of matches) {
@@ -217,8 +260,6 @@ export default function SeasonManager({ supabase, players, navigate }) {
           playerMap[m.player2_id].legs_against += m.player1_legs || 0;
         }
       }
-
-      // Also include players who haven't played yet
       const { data: spRows } = await supabase
         .from("season_players")
         .select("player_id, player:player_id(id, name)")
@@ -231,68 +272,72 @@ export default function SeasonManager({ supabase, players, navigate }) {
           if (!playerMap[sp.player_id].name) playerMap[sp.player_id].name = sp.player?.name || "";
         }
       }
-
       const sorted = Object.entries(playerMap)
         .map(([id, s]) => ({ id, ...s }))
         .sort((a, b) => b.wins - a.wins || (b.legs_for - b.legs_against) - (a.legs_for - a.legs_against));
       setStandings(sorted);
     }
-
     setScheduleLoading(false);
   };
 
-  const startSeasonMatch = async (match) => {
-    // Create the first leg for this match
+  // ── Start / resume match ───────────────────────────────────────────────────
+  const startSeasonMatch = async (m) => {
     const { data: leg } = await supabase
       .from("legs")
-      .insert({
-        match_id: match.id,
-        leg_number: 1,
-        starting_score: null,
-        game_type: null,
-      })
-      .select()
-      .single();
-
-    if (leg) navigate("active", { match, currentLeg: leg });
+      .insert({ match_id: m.id, leg_number: 1, starting_score: null, game_type: null })
+      .select().single();
+    if (leg) navigate("active", { match: m, currentLeg: leg });
   };
 
-  const resumeSeasonMatch = async (match) => {
+  const resumeSeasonMatch = async (m) => {
     const { data: legs } = await supabase
-      .from("legs")
-      .select("*")
-      .eq("match_id", match.id)
-      .order("leg_number", { ascending: true });
+      .from("legs").select("*").eq("match_id", m.id).order("leg_number", { ascending: true });
     const currentLeg = legs?.find(l => l.status !== "completed") || legs?.[legs.length - 1];
-    if (currentLeg) navigate("active", { match, currentLeg });
+    if (currentLeg) navigate("active", { match: m, currentLeg });
   };
 
-  // ── Preview schedule ───────────────────────────────────────────────────────
-  const previewWeeks = selectedPlayers.length >= 2
-    ? buildWeeklySchedule(selectedPlayers, numWeeks)
-    : [];
+  const getPlayerName = (id) => players.find(p => p.id === id)?.name || "?";
 
-  const getPlayerName = (id) => players.find(p => p.id === id)?.name || id;
+  // ── Renders ────────────────────────────────────────────────────────────────
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // Auth modal overlay
+  const AuthModal = () => (
+    <div className="abandon-overlay">
+      <div className="abandon-card">
+        <h3>🔒 Admin Required</h3>
+        <input
+          className="score-input"
+          type="password"
+          placeholder="Admin password"
+          value={authInput}
+          onChange={e => setAuthInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submitAuth()}
+          autoFocus
+        />
+        {authError && <div className="error-msg">{authError}</div>}
+        <button className="btn-primary big-btn" onClick={submitAuth}>Enter</button>
+        <button className="btn-secondary big-btn" onClick={() => setShowAuthModal(false)}>Cancel</button>
+      </div>
+    </div>
+  );
 
   // LIST
   if (view === "list") {
     return (
       <div className="screen">
+        {showAuthModal && <AuthModal />}
         <div className="screen-header">
-          <button className="back-btn" onClick={() => navigate("admin")}>← Back</button>
+          <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
           <h2>🏆 Seasons</h2>
         </div>
 
-        <button className="btn-primary big-btn" onClick={() => { resetCreate(); setView("create"); }}>
+        <button className="btn-primary big-btn" onClick={() => requireAdmin("create")}>
           + New Season
         </button>
 
         {loading && <div className="loading">Loading...</div>}
-
         {!loading && seasons.length === 0 && (
-          <div className="empty-state">No seasons yet. Create one to get started.</div>
+          <div className="empty-state">No seasons yet.</div>
         )}
 
         {seasons.map(s => (
@@ -302,16 +347,32 @@ export default function SeasonManager({ supabase, players, navigate }) {
               <div className="admin-match-players">{s.name}</div>
               <div className="admin-match-meta">{s.weeks} weeks · {s.status}</div>
             </div>
-            <span className={`status-badge ${s.status}`}>
-              {s.status === "active" ? "Active" : "Completed"}
-            </span>
+            <div className="admin-match-actions">
+              <span className={`status-badge ${s.status}`}>
+                {s.status === "active" ? "Active" : "Completed"}
+              </span>
+              {authed && (
+                <button className="btn-delete" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}>🗑</button>
+              )}
+            </div>
           </div>
         ))}
+
+        {confirmDeleteSeason && (
+          <div className="abandon-overlay">
+            <div className="abandon-card">
+              <h3>Delete Season?</h3>
+              <p><strong>{confirmDeleteSeason.name}</strong><br /><br />This will permanently delete all matches, legs, and turns in this season.</p>
+              <button className="btn-danger big-btn" onClick={() => deleteSeason(confirmDeleteSeason)}>Yes, Delete It</button>
+              <button className="btn-secondary big-btn" onClick={() => setConfirmDeleteSeason(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // CREATE — multi-step
+  // CREATE
   if (view === "create") {
     return (
       <div className="screen">
@@ -320,7 +381,6 @@ export default function SeasonManager({ supabase, players, navigate }) {
           <h2>New Season</h2>
         </div>
 
-        {/* Step indicators */}
         <div className="season-steps">
           {["Name","Players","Weeks","Confirm"].map((label, i) => (
             <div key={i} className={`season-step ${step === i+1 ? "active" : ""} ${step > i+1 ? "done" : ""}`}>
@@ -330,75 +390,49 @@ export default function SeasonManager({ supabase, players, navigate }) {
           ))}
         </div>
 
-        {/* Step 1: Name */}
         {step === 1 && (
           <div className="form-section">
             <label className="form-label">Season Name</label>
             <input
-              className="select-input"
-              type="text"
-              placeholder="e.g. Spring 2026"
-              value={seasonName}
-              onChange={e => setSeasonName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && seasonName.trim() && setStep(2)}
-              autoFocus
+              className="select-input" type="text" placeholder="e.g. Spring 2026"
+              value={seasonName} onChange={e => setSeasonName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && seasonName.trim() && setStep(2)} autoFocus
             />
-            <button
-              className="btn-primary big-btn"
-              style={{ marginTop: "1rem" }}
-              onClick={() => setStep(2)}
-              disabled={!seasonName.trim()}
-            >
-              Next →
-            </button>
+            <button className="btn-primary big-btn" style={{ marginTop: "1rem" }}
+              onClick={() => setStep(2)} disabled={!seasonName.trim()}>Next →</button>
           </div>
         )}
 
-        {/* Step 2: Players */}
         {step === 2 && (
           <div className="form-section">
             <label className="form-label">Select Players ({selectedPlayers.length} selected)</label>
             <div className="player-select-grid">
               {players.map(p => (
-                <button
-                  key={p.id}
+                <button key={p.id}
                   className={`player-select-btn ${selectedPlayers.includes(p.id) ? "selected" : ""}`}
-                  onClick={() => togglePlayer(p.id)}
-                >
+                  onClick={() => togglePlayer(p.id)}>
                   {selectedPlayers.includes(p.id) ? "✓ " : ""}{p.name}
                 </button>
               ))}
             </div>
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
               <button className="btn-secondary big-btn" onClick={() => setStep(1)}>← Back</button>
-              <button
-                className="btn-primary big-btn"
-                onClick={() => setStep(3)}
-                disabled={selectedPlayers.length < 2}
-              >
-                Next →
-              </button>
+              <button className="btn-primary big-btn" onClick={() => setStep(3)} disabled={selectedPlayers.length < 2}>Next →</button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Weeks */}
         {step === 3 && (
           <div className="form-section">
             <label className="form-label">Number of Weeks</label>
             <div className="weeks-grid">
               {[4,6,8,10,12,16].map(w => (
-                <button
-                  key={w}
-                  className={`weeks-btn ${numWeeks === w ? "selected" : ""}`}
-                  onClick={() => setNumWeeks(w)}
-                >
-                  {w}
-                </button>
+                <button key={w} className={`weeks-btn ${numWeeks === w ? "selected" : ""}`}
+                  onClick={() => setNumWeeks(w)}>{w}</button>
               ))}
             </div>
             <p className="form-sub">
-              {numWeeks * 3} total matches · {selectedPlayers.length} players
+              {matchesPerWeek} matches/week · {totalMatches} total matches · {selectedPlayers.length} players
             </p>
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
               <button className="btn-secondary big-btn" onClick={() => setStep(2)}>← Back</button>
@@ -407,18 +441,17 @@ export default function SeasonManager({ supabase, players, navigate }) {
           </div>
         )}
 
-        {/* Step 4: Confirm + preview */}
         {step === 4 && (
           <div className="form-section">
             <div className="season-summary-card">
               <div className="season-summary-name">{seasonName}</div>
               <div className="season-summary-meta">
-                {selectedPlayers.length} players · {numWeeks} weeks · {numWeeks * 3} matches
+                {selectedPlayers.length} players · {numWeeks} weeks · {totalMatches} total matches
               </div>
             </div>
 
             <div className="schedule-preview">
-              {previewWeeks.slice(0, 3).map((week, wi) => (
+              {previewWeeks.slice(0, previewCount).map((week, wi) => (
                 <div key={wi} className="preview-week">
                   <div className="preview-week-label">Week {wi + 1}</div>
                   {week.map(([a, b], mi) => (
@@ -428,20 +461,18 @@ export default function SeasonManager({ supabase, players, navigate }) {
                   ))}
                 </div>
               ))}
-              {numWeeks > 3 && (
-                <div className="preview-more">+ {numWeeks - 3} more weeks...</div>
+              {previewCount < numWeeks && (
+                <button className="preview-more-btn"
+                  onClick={() => setPreviewCount(c => Math.min(c + 1, numWeeks))}>
+                  + {numWeeks - previewCount} more week{numWeeks - previewCount !== 1 ? "s" : ""}...
+                </button>
               )}
             </div>
 
             {createError && <div className="error-msg">{createError}</div>}
-
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
               <button className="btn-secondary big-btn" onClick={() => setStep(3)}>← Back</button>
-              <button
-                className="btn-primary big-btn"
-                onClick={createSeason}
-                disabled={creating}
-              >
+              <button className="btn-primary big-btn" onClick={createSeason} disabled={creating}>
                 {creating ? "Creating..." : "🏆 Create Season"}
               </button>
             </div>
@@ -451,26 +482,37 @@ export default function SeasonManager({ supabase, players, navigate }) {
     );
   }
 
-  // DETAIL — season schedule + standings
+  // DETAIL
   if (view === "detail" && detailSeason) {
     return (
       <div className="screen">
+        {showAuthModal && <AuthModal />}
+        {confirmDeleteSeason && (
+          <div className="abandon-overlay">
+            <div className="abandon-card">
+              <h3>Delete Season?</h3>
+              <p><strong>{confirmDeleteSeason.name}</strong><br /><br />All matches, legs, and turns will be permanently deleted.</p>
+              <button className="btn-danger big-btn" onClick={() => deleteSeason(confirmDeleteSeason)}>Yes, Delete It</button>
+              <button className="btn-secondary big-btn" onClick={() => setConfirmDeleteSeason(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
         <div className="screen-header">
           <button className="back-btn" onClick={() => { setView("list"); loadSeasons(); }}>← Back</button>
           <h2>{detailSeason.name}</h2>
+          {authed && (
+            <button className="btn-delete" style={{ marginLeft: "auto" }}
+              onClick={() => requireAdmin("delete", detailSeason)}>🗑</button>
+          )}
         </div>
 
-        {/* Standings */}
         <div className="season-standings">
           <div className="standings-header">Standings</div>
           <div className="standings-row standings-label-row">
-            <span>Player</span>
-            <span>W</span>
-            <span>L</span>
-            <span>Legs</span>
+            <span>Player</span><span>W</span><span>L</span><span>Legs</span>
           </div>
           {standings.map((s, i) => (
-            <div key={s.id} className={`standings-row ${i === 0 ? "standings-leader" : ""}`}>
+            <div key={s.id} className={`standings-row ${i === 0 && s.wins > 0 ? "standings-leader" : ""}`}>
               <span className="standings-name">{s.name}</span>
               <span className="standings-stat">{s.wins}</span>
               <span className="standings-stat">{s.losses}</span>
@@ -479,7 +521,6 @@ export default function SeasonManager({ supabase, players, navigate }) {
           ))}
         </div>
 
-        {/* Schedule */}
         {scheduleLoading && <div className="loading">Loading schedule...</div>}
 
         {schedule.map(({ week, matches }) => (
@@ -492,25 +533,16 @@ export default function SeasonManager({ supabase, players, navigate }) {
               return (
                 <div key={m.id} className={`schedule-match-row ${done ? "done" : ""}`}>
                   <div className="schedule-match-players">
-                    <span className={m.winner_id === m.player1_id ? "schedule-winner" : ""}>
-                      {m.p1?.name}
-                    </span>
+                    <span className={m.winner_id === m.player1_id ? "schedule-winner" : ""}>{m.p1?.name}</span>
                     <span className="vs-small">vs</span>
-                    <span className={m.winner_id === m.player2_id ? "schedule-winner" : ""}>
-                      {m.p2?.name}
-                    </span>
+                    <span className={m.winner_id === m.player2_id ? "schedule-winner" : ""}>{m.p2?.name}</span>
                   </div>
                   <div className="schedule-match-right">
-                    {done && (
-                      <span className="schedule-score">
-                        {m.player1_legs}–{m.player2_legs}
-                      </span>
-                    )}
+                    {done && <span className="schedule-score">{m.player1_legs}–{m.player2_legs}</span>}
                     {!done && (
                       <button
                         className={inProg ? "btn-resume" : "btn-play"}
-                        onClick={() => inProg ? resumeSeasonMatch(m) : startSeasonMatch(m)}
-                      >
+                        onClick={() => inProg ? resumeSeasonMatch(m) : startSeasonMatch(m)}>
                         {inProg ? "▶ Resume" : "▶ Play"}
                       </button>
                     )}

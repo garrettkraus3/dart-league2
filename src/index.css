@@ -1620,3 +1620,23 @@ html, body, #root {
   background: rgba(232,200,64,0.2);
   border-color: var(--accent);
 }
+
+/* ── Season preview expand button ── */
+.preview-more-btn {
+  width: 100%;
+  padding: 0.5rem;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.preview-more-btn:hover {
+  background: rgba(232,200,64,0.06);
+  border-color: var(--accent);
+}

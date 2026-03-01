@@ -1,4 +1,4 @@
-const APP_VERSION = "V2.2026.02.28.22.58.47";
+const APP_VERSION = "V2.2026.03.01.00.12.33";
 
 export default function HomeScreen({ navigate }) {
   return (
@@ -14,8 +14,12 @@ export default function HomeScreen({ navigate }) {
           <span className="btn-icon">⚡</span>
           NEW MATCH
         </button>
-        <button className="btn-secondary big-btn" onClick={() => navigate("leaderboard")}>
+        <button className="btn-secondary big-btn" onClick={() => navigate("seasons")}>
           <span className="btn-icon">🏆</span>
+          SEASONS
+        </button>
+        <button className="btn-secondary big-btn" onClick={() => navigate("leaderboard")}>
+          <span className="btn-icon">📈</span>
           LEADERBOARD
         </button>
         <button className="btn-secondary big-btn" onClick={() => navigate("stats")}>

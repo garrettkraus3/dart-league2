@@ -480,3 +480,121 @@ html, body, #root {
 .error-msg { background: rgba(255,77,77,0.1); border: 1px solid rgba(255,77,77,0.3); color: var(--accent2); padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.9rem; }
 .loading { text-align: center; color: var(--text-muted); padding: 2rem; }
 .empty-state { text-align: center; color: var(--text-muted); padding: 2rem; font-size: 0.9rem; }
+
+/* ── Match format card ── */
+.match-format-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.format-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.format-legs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.format-leg {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.format-leg-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.format-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Leg progress pips ── */
+.leg-progress {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.leg-pip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.2rem;
+  opacity: 0.4;
+  transition: all 0.2s;
+}
+
+.leg-pip.done {
+  opacity: 0.7;
+  border-color: var(--green);
+  background: rgba(61, 220, 132, 0.05);
+}
+
+.leg-pip.active {
+  opacity: 1;
+  border-color: var(--accent);
+  background: rgba(232, 200, 64, 0.08);
+}
+
+.pip-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.pip-type {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* ── Leg 5 choice screen ── */
+.leg5-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.leg5-sub {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.leg5-scores {
+  display: flex;
+  justify-content: space-around;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  color: var(--accent);
+}

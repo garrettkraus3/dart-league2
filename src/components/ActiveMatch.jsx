@@ -39,10 +39,46 @@ function isBust(remaining, darts) {
 }
 
 function canCheckout(remaining) {
-  // Can you check out from this score? (double out, max 3 darts)
-  // Rough check: possible if remaining <= 170 and not 169, 168, 166, 165, 163, 162, 159
   const impossible = [169,168,166,165,163,162,159];
   return remaining <= 170 && !impossible.includes(remaining);
+}
+
+// Checkout suggestions keyed by remaining score
+const CHECKOUTS = {
+  170:"T20 T20 Bull", 167:"T20 T19 Bull", 164:"T20 T18 Bull", 161:"T20 T17 Bull",
+  160:"T20 T20 D20",  158:"T20 T20 D19",  157:"T20 T19 D20",  156:"T20 T20 D18",
+  155:"T20 T19 D19",  154:"T20 T18 D20",  153:"T20 T19 D18",  152:"T20 T20 D16",
+  151:"T20 T17 D20",  150:"T20 T18 D18",  149:"T20 T19 D16",  148:"T20 T16 D20",
+  147:"T20 T17 D18",  146:"T20 T18 D16",  145:"T20 T19 D14",  144:"T20 T16 D18",
+  143:"T20 T17 D16",  142:"T20 T18 D14",  141:"T20 T19 D12",  140:"T20 T16 D16",
+  130:"T20 T18 D8",   121:"T20 T11 D14",  120:"T20 S20 D20",  100:"T20 D20",
+  99:"T19 D21",       98:"T20 D19",        97:"T19 D20",        96:"T20 D18",
+  95:"T19 D19",       94:"T18 D20",        93:"T19 D18",        92:"T20 D16",
+  91:"T17 D20",       90:"T18 D18",        89:"T19 D16",        88:"T20 D14",
+  87:"T17 D18",       86:"T18 D16",        85:"T19 D14",        84:"T20 D12",
+  83:"T17 D16",       82:"T14 D20",        81:"T19 D12",        80:"T20 D10",
+  79:"T19 D11",       78:"T18 D12",        77:"T19 D10",        76:"T20 D8",
+  75:"T17 D12",       74:"T14 D16",        73:"T19 D8",         72:"T16 D12",
+  71:"T13 D16",       70:"T18 D8",         69:"T19 D6",         68:"T20 D4",
+  67:"T17 D8",        66:"T10 D18",        65:"T19 D4",         64:"T16 D8",
+  63:"T13 D12",       62:"T10 D16",        61:"T15 D8",         60:"S20 D20",
+  59:"S19 D20",       58:"S18 D20",        57:"S17 D20",        56:"S16 D20",
+  55:"S15 D20",       54:"S14 D20",        53:"S13 D20",        52:"S12 D20",
+  51:"S11 D20",       50:"Bull",           49:"S9 D20",         48:"S16 D16",
+  47:"S15 D16",       46:"S14 D16",        45:"S13 D16",        44:"S12 D16",
+  43:"S11 D16",       42:"S10 D16",        41:"S9 D16",         40:"D20",
+  38:"D19",           36:"D18",            34:"D17",             32:"D16",
+  30:"D15",           28:"D14",            26:"D13",             24:"D12",
+  22:"D11",           20:"D10",            18:"D9",              16:"D8",
+  14:"D7",            12:"D6",             10:"D5",              8:"D4",
+  6:"D3",             4:"D2",              2:"D1",
+};
+
+function getCheckoutHint(remaining, dartsThrown) {
+  const path = CHECKOUTS[remaining];
+  if (!path) return null;
+  const parts = path.split(" ");
+  return parts[dartsThrown] || null;
 }
 
 // ─── Dartboard (from custom design) ──────────────────────────────────────────
@@ -145,7 +181,7 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
-      style={{ maxWidth: "100%", opacity, filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.5))", touchAction: "manipulation" }}>
+      style={{ width: "100%", height: "auto", maxWidth: "340px", display: "block", margin: "0 auto", opacity, filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.5))", touchAction: "manipulation" }}>
       <circle cx={cx} cy={cy} r={212} fill="#111" />
       <circle cx={cx} cy={cy} r={207} fill="#1a1a1a" />
       {segments}
@@ -192,13 +228,10 @@ function DartInput({ onSelect, disabled, inputMode }) {
 
   if (inputMode === "board") {
     return (
-      <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
-        <div style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
-          Tap a segment — rings score double/triple automatically
-        </div>
+      <div className={`dart-input-panel board-mode ${disabled ? "disabled" : ""}`}>
+        <div className="board-hint-text">Tap a ring — double/triple score automatically</div>
         <DartBoard onScore={handleBoardScore} disabled={disabled} cricketOnly={false} />
-        <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}
-          style={{ width: "100%", marginTop: "0.5rem" }}>
+        <button className="modifier-btn miss board-miss" onClick={handleMiss} disabled={disabled}>
           Miss
         </button>
       </div>
@@ -255,13 +288,10 @@ function CricketDartInput({ onSelect, disabled, inputMode }) {
 
   if (inputMode === "board") {
     return (
-      <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
-        <div style={{ textAlign: "center", fontSize: "0.75rem", color: "#ffd60a", marginBottom: "0.25rem" }}>
-          ★ Gold numbers are cricket — tap any ring
-        </div>
+      <div className={`dart-input-panel board-mode ${disabled ? "disabled" : ""}`}>
+        <div className="board-hint-text" style={{ color: "#ffd60a" }}>★ Gold = cricket numbers — tap any ring</div>
         <DartBoard onScore={handleBoardScore} disabled={disabled} cricketOnly={true} />
-        <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}
-          style={{ width: "100%", marginTop: "0.5rem" }}>
+        <button className="modifier-btn miss board-miss" onClick={handleMiss} disabled={disabled}>
           Miss
         </button>
       </div>
@@ -699,7 +729,6 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
           <div className={`score-big ${turnBust ? "bust-score" : ""}`}>{liveRemain}</div>
           <div className="legs-count">Legs: {legScores[currentPlayerId]}</div>
           {turnBust && <div className="bust-label">BUST</div>}
-          {canCheckout(myScore) && !turnBust && myScore > 1 && <div className="checkout-label">Checkout!</div>}
         </div>
         <div className="score-divider">
           <div className="leg-label">Leg {legNumber} · 501</div>
@@ -798,10 +827,21 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
       {isXO1 ? <XO1Scoreboard /> : <CricketScoreboard />}
 
-      <div className="turn-indicator">
-        🎯 <strong>{currentPlayer?.name}</strong>'s turn
-        {bustMessage && <span className="bust-msg"> — {bustMessage}</span>}
-      </div>
+      {isXO1 && (() => {
+        const myScore   = xo1Scores[currentPlayerId];
+        const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
+        const hint = !turnBust && canCheckout(liveRemain) && liveRemain > 1
+          ? getCheckoutHint(liveRemain, darts.length)
+          : null;
+        return hint ? (
+          <div className="checkout-hint">
+            🎯 <span className="checkout-next">{hint}</span>
+            <span className="checkout-remain"> — {liveRemain} left</span>
+          </div>
+        ) : bustMessage ? (
+          <div className="checkout-hint bust-hint">{bustMessage}</div>
+        ) : null;
+      })()}
 
       <DartStrip />
 

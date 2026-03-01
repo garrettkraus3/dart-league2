@@ -1225,3 +1225,54 @@ html, body, #root {
   border-color: var(--border);
   color: var(--text);
 }
+
+/* ── Checkout Hint Bar ── */
+.checkout-hint {
+  text-align: center;
+  padding: 0.4rem 1rem;
+  background: rgba(61, 220, 132, 0.08);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+  color: var(--green);
+  margin: 0 0 0.25rem;
+}
+
+.checkout-hint.bust-hint {
+  background: rgba(255, 77, 77, 0.08);
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+
+.checkout-next {
+  font-size: 1.2rem;
+  color: #ffd60a;
+}
+
+.checkout-remain {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+/* ── Board mode panel ── */
+.dart-input-panel.board-mode {
+  padding: 0.25rem 0;
+  background: transparent;
+  border: none;
+  gap: 0.25rem;
+}
+
+.board-hint-text {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 0.1rem;
+}
+
+.board-miss {
+  width: 100%;
+  margin-top: 0.25rem;
+}

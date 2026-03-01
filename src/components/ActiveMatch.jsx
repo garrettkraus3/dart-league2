@@ -13,8 +13,10 @@ function getLegGameType(legNumber, chosenLeg5) {
 
 function dartValue(number, modifier) {
   if (number === null) return 0;
+  if (number === "Miss") return 0;
   if (number === "Bull") return modifier === "double" ? 50 : 25;
   const n = parseInt(number);
+  if (isNaN(n)) return 0;
   if (modifier === "triple") return n * 3;
   if (modifier === "double") return n * 2;
   return n;
@@ -43,184 +45,135 @@ function canCheckout(remaining) {
   return remaining <= 170 && !impossible.includes(remaining);
 }
 
-// ─── Dartboard SVG constants ──────────────────────────────────────────────────
-// Standard dartboard clockwise order starting from top
-const BOARD_ORDER = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+// ─── Dartboard (from custom design) ──────────────────────────────────────────
+const BOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+const CRICKET_SET   = new Set([15, 16, 17, 18, 19, 20]);
 
-function DartboardSVG({ onSelect, disabled, modifier, cricketOnly }) {
-  const cx = 160, cy = 160, r = 155;
-  const segments = BOARD_ORDER.length;
-  const segAngle = (2 * Math.PI) / segments;
-  const startOffset = -Math.PI / 2 - segAngle / 2;
+function polarToXY(angle, r, cx, cy) {
+  const rad = ((angle - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
 
-  // Radii for each ring
-  const R = {
-    bullseye: 12,
-    bull:     22,
-    inner:    60,
-    triple:   72,
-    outer:    110,
-    double:   122,
-  };
+// Translates a board tap {segment, position, value} → ActiveMatch dart {number, modifier}
+function boardDartToMatch(dart) {
+  const number   = dart.position === "bull" ? "Bull" : parseInt(dart.position);
+  const modifier = dart.segment === "triple" ? "triple"
+                 : dart.segment === "double" ? "double"
+                 : "single";
+  return { number, modifier };
+}
 
-  const polarToXY = (angle, radius) => ({
-    x: cx + radius * Math.cos(angle),
-    y: cy + radius * Math.sin(angle),
-  });
+function DartBoard({ onScore, disabled, cricketOnly }) {
+  const cx = 170, cy = 170, size = 360;
+  const rings = { bull: 23, bullseye: 44, triple: 95, tripleEnd: 125, double: 155, doubleEnd: 185 };
+  const [hovered, setHovered] = useState(null);
 
-  const arcPath = (r1, r2, a1, a2) => {
-    const p1 = polarToXY(a1, r1);
-    const p2 = polarToXY(a2, r1);
-    const p3 = polarToXY(a2, r2);
-    const p4 = polarToXY(a1, r2);
+  const makeArc = (angleStart, angleEnd, r1, r2) => {
+    const p1 = polarToXY(angleStart, r1, cx, cy);
+    const p2 = polarToXY(angleEnd,   r1, cx, cy);
+    const p3 = polarToXY(angleEnd,   r2, cx, cy);
+    const p4 = polarToXY(angleStart, r2, cx, cy);
     return `M ${p1.x} ${p1.y} A ${r1} ${r1} 0 0 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${r2} ${r2} 0 0 0 ${p4.x} ${p4.y} Z`;
   };
 
-  const handleSegmentClick = (num, ring) => {
+  const handleTap = (dart) => {
     if (disabled) return;
-    if (cricketOnly && !CRICKET_NUMBERS.includes(num)) return;
-    // ring: "single", "double", "triple"
-    const mod = modifier || "single";
-    if (num === "Bull") {
-      onSelect({ number: "Bull", modifier: mod === "triple" ? "double" : mod });
-    } else {
-      onSelect({ number: num, modifier: mod });
-    }
+    const num = dart.position === "bull" ? "Bull" : parseInt(dart.position);
+    if (cricketOnly && num !== "Bull" && !CRICKET_SET.has(num)) return;
+    onScore(dart);
   };
 
-  const isActive = (num) => !cricketOnly || CRICKET_NUMBERS.includes(num);
-  const dimmed = disabled ? 0.4 : 1;
+  const opacity = disabled ? 0.4 : 1;
+
+  const segments = BOARD_NUMBERS.map((num, i) => {
+    const angleStart = i * 18 - 9;
+    const angleEnd   = angleStart + 18;
+    const isCricket  = CRICKET_SET.has(num);
+    const isEven     = i % 2 === 0;
+    const singleColor  = isEven ? "#1a1a2e" : "#f5e6c8";
+    const scoringColor = isEven ? "#2d6a4f" : "#e63946";
+    const hoverColor   = "#ffd60a";
+    const midAngle     = angleStart + 9;
+    const labelPos     = polarToXY(midAngle, 198, cx, cy);
+    const inactive     = cricketOnly && !isCricket;
+
+    return (
+      <g key={num} opacity={inactive ? 0.2 : 1}>
+        {/* Inner single */}
+        <path d={makeArc(angleStart, angleEnd, rings.bullseye + 1, rings.triple)}
+          fill={hovered === `S${num}` ? hoverColor : singleColor}
+          stroke="#333" strokeWidth="0.5"
+          style={{ cursor: inactive || disabled ? "default" : "pointer" }}
+          onMouseEnter={() => !inactive && setHovered(`S${num}`)}
+          onMouseLeave={() => setHovered(null)}
+          onClick={() => handleTap({ segment: "single", position: String(num), value: num })} />
+        {/* Triple ring */}
+        <path d={makeArc(angleStart, angleEnd, rings.triple, rings.tripleEnd)}
+          fill={hovered === `T${num}` ? hoverColor : scoringColor}
+          stroke="#333" strokeWidth="0.5"
+          style={{ cursor: inactive || disabled ? "default" : "pointer" }}
+          onMouseEnter={() => !inactive && setHovered(`T${num}`)}
+          onMouseLeave={() => setHovered(null)}
+          onClick={() => handleTap({ segment: "triple", position: String(num), value: num * 3 })} />
+        {/* Outer single */}
+        <path d={makeArc(angleStart, angleEnd, rings.tripleEnd, rings.double)}
+          fill={hovered === `S2${num}` ? hoverColor : singleColor}
+          stroke="#333" strokeWidth="0.5"
+          style={{ cursor: inactive || disabled ? "default" : "pointer" }}
+          onMouseEnter={() => !inactive && setHovered(`S2${num}`)}
+          onMouseLeave={() => setHovered(null)}
+          onClick={() => handleTap({ segment: "single", position: String(num), value: num })} />
+        {/* Double ring */}
+        <path d={makeArc(angleStart, angleEnd, rings.double, rings.doubleEnd)}
+          fill={hovered === `D${num}` ? hoverColor : scoringColor}
+          stroke="#333" strokeWidth="0.5"
+          style={{ cursor: inactive || disabled ? "default" : "pointer" }}
+          onMouseEnter={() => !inactive && setHovered(`D${num}`)}
+          onMouseLeave={() => setHovered(null)}
+          onClick={() => handleTap({ segment: "double", position: String(num), value: num * 2 })} />
+        {/* Number label */}
+        <text x={labelPos.x} y={labelPos.y}
+          textAnchor="middle" dominantBaseline="middle"
+          fontSize="13" fontWeight="bold"
+          fill={isCricket ? "#ffd60a" : "#ccc"}
+          style={{ pointerEvents: "none", userSelect: "none" }}>
+          {num}
+        </text>
+      </g>
+    );
+  });
 
   return (
-    <svg
-      viewBox="0 0 320 320"
-      width="100%"
-      style={{ maxWidth: 320, opacity: dimmed, touchAction: "manipulation" }}
-    >
-      {/* Outer miss ring */}
-      <circle cx={cx} cy={cy} r={r} fill="#111" />
-
-      {BOARD_ORDER.map((num, i) => {
-        const a1 = startOffset + i * segAngle;
-        const a2 = a1 + segAngle;
-        const even = i % 2 === 0;
-        const baseColor = even ? "#1a1a1a" : "#e8c840";
-        const altColor  = even ? "#c0392b" : "#1a1a1a";
-        const faded = !isActive(num) ? 0.25 : 1;
-
-        // Label position — middle of outer single ring
-        const labelAngle = a1 + segAngle / 2;
-        const labelR = (R.double + r) / 2;
-        const lp = polarToXY(labelAngle, labelR);
-
-        return (
-          <g key={num} opacity={faded}>
-            {/* Single inner */}
-            <path
-              d={arcPath(R.triple, R.inner, a1, a2)}
-              fill={baseColor}
-              stroke="#333" strokeWidth="0.5"
-              onClick={() => handleSegmentClick(num, "single")}
-              style={{ cursor: disabled || !isActive(num) ? "default" : "pointer" }}
-            />
-            {/* Triple ring */}
-            <path
-              d={arcPath(R.double, R.triple, a1, a2)}
-              fill={altColor}
-              stroke="#333" strokeWidth="0.5"
-              onClick={() => !disabled && isActive(num) && modifier === "triple"
-                ? handleSegmentClick(num, "triple")
-                : handleSegmentClick(num, "single")}
-              style={{ cursor: disabled || !isActive(num) ? "default" : "pointer" }}
-            />
-            {/* Single outer */}
-            <path
-              d={arcPath(R.outer, R.double, a1, a2)}
-              fill={baseColor}
-              stroke="#333" strokeWidth="0.5"
-              onClick={() => handleSegmentClick(num, "single")}
-              style={{ cursor: disabled || !isActive(num) ? "default" : "pointer" }}
-            />
-            {/* Double ring */}
-            <path
-              d={arcPath(r - 10, R.outer, a1, a2)}
-              fill={altColor}
-              stroke="#333" strokeWidth="0.5"
-              onClick={() => !disabled && isActive(num) && modifier === "double"
-                ? handleSegmentClick(num, "double")
-                : handleSegmentClick(num, "single")}
-              style={{ cursor: disabled || !isActive(num) ? "default" : "pointer" }}
-            />
-            {/* Number label */}
-            <text
-              x={lp.x} y={lp.y}
-              textAnchor="middle" dominantBaseline="middle"
-              fontSize="10" fontWeight="bold"
-              fill={isActive(num) ? "#fff" : "#555"}
-              style={{ pointerEvents: "none", userSelect: "none" }}
-            >
-              {num}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Bull outer (25) */}
-      <circle
-        cx={cx} cy={cy} r={R.bull}
-        fill="#c0392b" stroke="#333" strokeWidth="0.5"
-        onClick={() => !disabled && onSelect({ number: "Bull", modifier: "single" })}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      style={{ maxWidth: "100%", opacity, filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.5))", touchAction: "manipulation" }}>
+      <circle cx={cx} cy={cy} r={212} fill="#111" />
+      <circle cx={cx} cy={cy} r={207} fill="#1a1a1a" />
+      {segments}
+      {/* Bull (25) */}
+      <circle cx={cx} cy={cy} r={rings.bullseye}
+        fill={hovered === "SBull" ? "#ffd60a" : "#2d6a4f"}
+        stroke="#333" strokeWidth="1"
         style={{ cursor: disabled ? "default" : "pointer" }}
-      />
+        onMouseEnter={() => setHovered("SBull")} onMouseLeave={() => setHovered(null)}
+        onClick={() => handleTap({ segment: "single", position: "bull", value: 25 })} />
       {/* Bullseye (50) */}
-      <circle
-        cx={cx} cy={cy} r={R.bullseye}
-        fill="#1a7a1a" stroke="#333" strokeWidth="0.5"
-        onClick={() => !disabled && onSelect({ number: "Bull", modifier: "double" })}
+      <circle cx={cx} cy={cy} r={rings.bull}
+        fill={hovered === "DBull" ? "#ffd60a" : "#e63946"}
+        stroke="#333" strokeWidth="1"
         style={{ cursor: disabled ? "default" : "pointer" }}
-      />
+        onMouseEnter={() => setHovered("DBull")} onMouseLeave={() => setHovered(null)}
+        onClick={() => handleTap({ segment: "double", position: "bull", value: 50 })} />
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-        fontSize="7" fill="#fff" style={{ pointerEvents: "none", userSelect: "none" }}>
-        🎯
-      </text>
-
-      {/* Modifier ring overlays — highlight active ring */}
-      {modifier === "double" && (
-        <circle cx={cx} cy={cy} r={r - 5} fill="none" stroke="#e8c840" strokeWidth="3" opacity="0.5" />
-      )}
-      {modifier === "triple" && (
-        <>
-          <circle cx={cx} cy={cy} r={R.double}  fill="none" stroke="#e8c840" strokeWidth="3" opacity="0.5" />
-          <circle cx={cx} cy={cy} r={R.triple}  fill="none" stroke="#e8c840" strokeWidth="3" opacity="0.5" />
-        </>
-      )}
+        fontSize="8" fontWeight="bold" fill="white"
+        style={{ pointerEvents: "none" }}>BULL</text>
     </svg>
-  );
-}
-
-// ─── Shared Modifier Row ───────────────────────────────────────────────────────
-function ModifierRow({ modifier, setModifier, onMiss, disabled }) {
-  return (
-    <div className="modifier-row">
-      {["single","double","triple"].map(m => (
-        <button
-          key={m}
-          className={`modifier-btn ${modifier === m ? "active" : ""} ${m}`}
-          onClick={() => !disabled && setModifier(modifier === m ? null : m)}
-          disabled={disabled}
-        >
-          {m === "single" ? "S" : m === "double" ? "D" : "T"}
-        </button>
-      ))}
-      <button className="modifier-btn miss" onClick={() => !disabled && onMiss()} disabled={disabled}>
-        Miss
-      </button>
-    </div>
   );
 }
 
 // ─── Dart Input Component (501) ───────────────────────────────────────────────
 function DartInput({ onSelect, disabled, inputMode }) {
+  // Numbers in 20→1 order
+  const numOrder = [20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1];
   const [modifier, setModifier] = useState("single");
 
   const handleMiss = () => onSelect({ number: "Miss", modifier: "miss" });
@@ -231,39 +184,51 @@ function DartInput({ onSelect, disabled, inputMode }) {
     onSelect({ number: num, modifier });
   };
 
-  // Numbers in 20→1 order
-  const numOrder = [20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1];
+  // Board mode: tapping a segment directly encodes segment type, no modifier row needed
+  const handleBoardScore = (dart) => {
+    const { number, modifier: mod } = boardDartToMatch(dart);
+    onSelect({ number, modifier: mod });
+  };
 
   if (inputMode === "board") {
     return (
       <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
-        <ModifierRow modifier={modifier} setModifier={setModifier} onMiss={handleMiss} disabled={disabled} />
-        <div style={{ padding: "0 0.5rem" }}>
-          <DartboardSVG onSelect={onSelect} disabled={disabled} modifier={modifier} cricketOnly={false} />
+        <div style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+          Tap a segment — rings score double/triple automatically
         </div>
+        <DartBoard onScore={handleBoardScore} disabled={disabled} cricketOnly={false} />
+        <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}
+          style={{ width: "100%", marginTop: "0.5rem" }}>
+          Miss
+        </button>
       </div>
     );
   }
 
   return (
     <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
-      <ModifierRow modifier={modifier} setModifier={setModifier} onMiss={handleMiss} disabled={disabled} />
+      <div className="modifier-row">
+        {["single","double","triple"].map(m => (
+          <button key={m}
+            className={`modifier-btn ${modifier === m ? "active" : ""} ${m}`}
+            onClick={() => !disabled && setModifier(m)}
+            disabled={disabled}>
+            {m === "single" ? "S" : m === "double" ? "D" : "T"}
+          </button>
+        ))}
+        <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}>Miss</button>
+      </div>
       <div className={`number-grid ${!modifier ? "locked" : ""}`}>
         {numOrder.map(n => (
-          <button
-            key={n}
-            className="number-btn"
+          <button key={n} className="number-btn"
             onClick={() => selectNumber(n)}
-            disabled={disabled || !modifier}
-          >
+            disabled={disabled || !modifier}>
             {n}
           </button>
         ))}
-        <button
-          className="number-btn bull-btn"
+        <button className="number-btn bull-btn"
           onClick={() => selectNumber("Bull")}
-          disabled={disabled || !modifier || modifier === "triple"}
-        >
+          disabled={disabled || !modifier || modifier === "triple"}>
           Bull
         </button>
       </div>
@@ -283,28 +248,44 @@ function CricketDartInput({ onSelect, disabled, inputMode }) {
     onSelect({ number: num, modifier });
   };
 
+  const handleBoardScore = (dart) => {
+    const { number, modifier: mod } = boardDartToMatch(dart);
+    onSelect({ number, modifier: mod });
+  };
+
   if (inputMode === "board") {
     return (
       <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
-        <ModifierRow modifier={modifier} setModifier={setModifier} onMiss={handleMiss} disabled={disabled} />
-        <div style={{ padding: "0 0.5rem" }}>
-          <DartboardSVG onSelect={onSelect} disabled={disabled} modifier={modifier} cricketOnly={true} />
+        <div style={{ textAlign: "center", fontSize: "0.75rem", color: "#ffd60a", marginBottom: "0.25rem" }}>
+          ★ Gold numbers are cricket — tap any ring
         </div>
+        <DartBoard onScore={handleBoardScore} disabled={disabled} cricketOnly={true} />
+        <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}
+          style={{ width: "100%", marginTop: "0.5rem" }}>
+          Miss
+        </button>
       </div>
     );
   }
 
   return (
     <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
-      <ModifierRow modifier={modifier} setModifier={setModifier} onMiss={handleMiss} disabled={disabled} />
+      <div className="modifier-row">
+        {["single","double","triple"].map(m => (
+          <button key={m}
+            className={`modifier-btn ${modifier === m ? "active" : ""} ${m}`}
+            onClick={() => !disabled && setModifier(m)}
+            disabled={disabled}>
+            {m === "single" ? "S" : m === "double" ? "D" : "T"}
+          </button>
+        ))}
+        <button className="modifier-btn miss" onClick={handleMiss} disabled={disabled}>Miss</button>
+      </div>
       <div className={`cricket-number-grid ${!modifier ? "locked" : ""}`}>
         {CRICKET_NUMBERS.map(num => (
-          <button
-            key={num}
-            className="cricket-num-btn"
+          <button key={num} className="cricket-num-btn"
             onClick={() => selectNumber(num)}
-            disabled={disabled || !modifier || (modifier === "triple" && num === "Bull")}
-          >
+            disabled={disabled || !modifier || (modifier === "triple" && num === "Bull")}>
             {num}
           </button>
         ))}

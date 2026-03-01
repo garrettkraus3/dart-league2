@@ -1733,3 +1733,10 @@ html, body, #root {
   color: var(--accent);
   opacity: 0.85;
 }
+
+/* ── Password input override — smaller font so placeholder fits ── */
+input[type="password"].score-input {
+  font-size: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.05em;
+}

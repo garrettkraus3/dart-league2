@@ -1,248 +1,410 @@
 import { useState } from "react";
 
-const CRICKET_NUMBERS = [15, 16, 17, 18, 19, 20, "Bull"];
-const LEG_SCHEDULE = ["501", "501", "cricket", "cricket", "choice"];
+// ─── Constants ────────────────────────────────────────────────────────────────
+const CRICKET_NUMBERS = [20, 19, 18, 17, 16, 15, "Bull"];
+const LEG_SCHEDULE    = ["501", "501", "cricket", "cricket", "choice"];
+const NUMBERS         = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,"Bull"];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function getLegGameType(legNumber, chosenLeg5) {
-  const scheduled = LEG_SCHEDULE[legNumber - 1];
-  if (scheduled === "choice") return chosenLeg5 || null;
-  return scheduled;
+  const s = LEG_SCHEDULE[legNumber - 1];
+  return s === "choice" ? (chosenLeg5 || null) : s;
 }
 
+function dartValue(number, modifier) {
+  if (number === null) return 0;
+  if (number === "Bull") return modifier === "double" ? 50 : 25;
+  const n = parseInt(number);
+  if (modifier === "triple") return n * 3;
+  if (modifier === "double") return n * 2;
+  return n;
+}
+
+function isBust(remaining, darts) {
+  // remaining after this turn's darts so far
+  // bust if: goes below 0, hits exactly 1, or reaches 0 on non-double
+  const total = darts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
+  const newRemaining = remaining - total;
+  if (newRemaining < 0) return true;
+  if (newRemaining === 1) return true;
+  if (newRemaining === 0) {
+    const last = darts[darts.length - 1];
+    if (!last) return false;
+    // Must finish on double or double bull
+    return last.modifier !== "double";
+  }
+  return false;
+}
+
+function canCheckout(remaining) {
+  // Can you check out from this score? (double out, max 3 darts)
+  // Rough check: possible if remaining <= 170 and not 169, 168, 166, 165, 163, 162, 159
+  const impossible = [169,168,166,165,163,162,159];
+  return remaining <= 170 && !impossible.includes(remaining);
+}
+
+// ─── Dart Input Component ─────────────────────────────────────────────────────
+function DartInput({ dart, onSelect, disabled }) {
+  const [modifier, setModifier] = useState(null);
+
+  const selectModifier = (m) => {
+    setModifier(m);
+  };
+
+  const selectNumber = (num) => {
+    if (!modifier) return;
+    // Bull can't be triple
+    if (num === "Bull" && modifier === "triple") return;
+    onSelect({ number: num, modifier });
+    setModifier(null);
+  };
+
+  const modifiers = ["single", "double", "triple"];
+
+  return (
+    <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
+      {/* Modifier row */}
+      <div className="modifier-row">
+        {modifiers.map(m => (
+          <button
+            key={m}
+            className={`modifier-btn ${modifier === m ? "active" : ""} ${m}`}
+            onClick={() => !disabled && selectModifier(m)}
+            disabled={disabled}
+          >
+            {m === "single" ? "S" : m === "double" ? "D" : "T"}
+          </button>
+        ))}
+        <button
+          className="modifier-btn miss"
+          onClick={() => !disabled && onSelect({ number: "Miss", modifier: "miss" })}
+          disabled={disabled}
+        >
+          Miss
+        </button>
+      </div>
+
+      {/* Number grid */}
+      <div className={`number-grid ${!modifier ? "locked" : ""}`}>
+        {[...Array(20)].map((_, i) => {
+          const n = i + 1;
+          const isDisabled = disabled || !modifier || (modifier === "triple" && n === 0);
+          return (
+            <button
+              key={n}
+              className="number-btn"
+              onClick={() => selectNumber(n)}
+              disabled={isDisabled}
+            >
+              {n}
+            </button>
+          );
+        })}
+        <button
+          className="number-btn bull-btn"
+          onClick={() => selectNumber("Bull")}
+          disabled={disabled || !modifier || modifier === "triple"}
+        >
+          Bull
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Cricket Dart Input ───────────────────────────────────────────────────────
+function CricketDartInput({ dart, onSelect, disabled }) {
+  const [modifier, setModifier] = useState(null);
+
+  const selectModifier = (m) => setModifier(m);
+
+  const selectNumber = (num) => {
+    if (!modifier) return;
+    if (num === "Bull" && modifier === "triple") return;
+    onSelect({ number: num, modifier });
+    setModifier(null);
+  };
+
+  return (
+    <div className={`dart-input-panel ${disabled ? "disabled" : ""}`}>
+      <div className="modifier-row">
+        {["single","double","triple"].map(m => (
+          <button
+            key={m}
+            className={`modifier-btn ${modifier === m ? "active" : ""} ${m}`}
+            onClick={() => !disabled && selectModifier(m)}
+            disabled={disabled}
+          >
+            {m === "single" ? "S" : m === "double" ? "D" : "T"}
+          </button>
+        ))}
+        <button
+          className="modifier-btn miss"
+          onClick={() => !disabled && onSelect({ number: "Miss", modifier: "miss" })}
+          disabled={disabled}
+        >
+          Miss
+        </button>
+      </div>
+      <div className={`cricket-number-grid ${!modifier ? "locked" : ""}`}>
+        {CRICKET_NUMBERS.map(num => (
+          <button
+            key={num}
+            className="cricket-num-btn"
+            onClick={() => selectNumber(num)}
+            disabled={disabled || !modifier || (modifier === "triple" && num === "Bull")}
+          >
+            {num}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function ActiveMatch({ match, players, supabase, navigate }) {
   const { currentLeg: initialLeg } = match;
-  const [currentLeg, setCurrentLeg] = useState(initialLeg);
-  const [matchData] = useState(match.match);
-  const [legNumber, setLegNumber] = useState(1);
-  const [turnNumber, setTurnNumber] = useState(1);
-  const [currentPlayerIdx, setCurrentPlayerIdx] = useState(null); // null = not yet chosen
-  const [legScores, setLegScores] = useState({
+  const [currentLeg, setCurrentLeg]     = useState(initialLeg);
+  const [matchData]                      = useState(match.match);
+  const [legNumber, setLegNumber]        = useState(1);
+  const [turnNumber, setTurnNumber]      = useState(1);
+  const [currentPlayerIdx, setCurrentPlayerIdx] = useState(null);
+  const [legScores, setLegScores]        = useState({
     [match.match.player1_id]: 0,
     [match.match.player2_id]: 0,
   });
-  const [chosenLeg5Type, setChosenLeg5Type] = useState(null);
+  const [chosenLeg5Type, setChosenLeg5Type]       = useState(null);
   const [awaitingLeg5Choice, setAwaitingLeg5Choice] = useState(false);
-  const [awaitingFirstThrow, setAwaitingFirstThrow] = useState(true); // leg 1 starts with prompt
+  const [awaitingFirstThrow, setAwaitingFirstThrow] = useState(true);
 
   const currentGameType = getLegGameType(legNumber, chosenLeg5Type);
-  const isXO1 = currentGameType === "501" || currentGameType === "301";
+  const isXO1 = currentGameType === "501";
 
+  // 501 state
   const [xo1Scores, setXo1Scores] = useState({
     [match.match.player1_id]: 501,
     [match.match.player2_id]: 501,
   });
-  const [cricketState, setCricketState] = useState({
-    [match.match.player1_id]: { 15:0,16:0,17:0,18:0,19:0,20:0,Bull:0,points:0 },
-    [match.match.player2_id]: { 15:0,16:0,17:0,18:0,19:0,20:0,Bull:0,points:0 },
-  });
 
-  const [dartScore, setDartScore] = useState("");
-  const [isCheckoutAttempt, setIsCheckoutAttempt] = useState(false);
-  const [isCheckoutSuccess, setIsCheckoutSuccess] = useState(false);
-  const [checkoutDart, setCheckoutDart] = useState(null);
-  const [cricketMarks, setCricketMarks] = useState({ 15:0,16:0,17:0,18:0,19:0,20:0,Bull:0 });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [matchOver, setMatchOver] = useState(false);
-  const [winner, setWinner] = useState(null);
+  // Cricket state: marks per number, points
+  const initCricket = () => ({
+    [match.match.player1_id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
+    [match.match.player2_id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
+  });
+  const [cricketState, setCricketState] = useState(initCricket());
+
+  // Current turn darts: array of up to 3 { number, modifier }
+  const [darts, setDarts]           = useState([]);
+  const [turnBust, setTurnBust]     = useState(false);
+  const [turnWin, setTurnWin]       = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [matchOver, setMatchOver]   = useState(false);
+  const [winner, setWinner]         = useState(null);
   const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const [bustMessage, setBustMessage] = useState("");
 
   const p1 = players.find(p => p.id === match.match.player1_id);
   const p2 = players.find(p => p.id === match.match.player2_id);
-  const playerOrder = [match.match.player1_id, match.match.player2_id];
+  const playerOrder   = [match.match.player1_id, match.match.player2_id];
   const currentPlayerId = currentPlayerIdx !== null ? playerOrder[currentPlayerIdx] : null;
-  const currentPlayer = currentPlayerId ? (currentPlayerId === match.match.player1_id ? p1 : p2) : null;
+  const currentPlayer   = currentPlayerId === match.match.player1_id ? p1 : p2;
+  const opponentId      = currentPlayerId ? playerOrder[1 - currentPlayerIdx] : null;
 
-  const resetTurnInput = () => {
-    setDartScore("");
-    setIsCheckoutAttempt(false);
-    setIsCheckoutSuccess(false);
-    setCheckoutDart(null);
-    setCricketMarks({ 15:0,16:0,17:0,18:0,19:0,20:0,Bull:0 });
-    setError("");
+  // ── Live score calculations ────────────────────────────────────────────────
+  const turnScore501 = darts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
+  const remaining501 = currentPlayerId ? Math.max(0, xo1Scores[currentPlayerId] - turnScore501) : 501;
+
+  // ── Dart entry handlers ────────────────────────────────────────────────────
+  const handleDart501 = (dart) => {
+    if (darts.length >= 3 || turnBust || turnWin) return;
+
+    const newDarts = [...darts, dart];
+    const totalSoFar = newDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
+    const newRemaining = xo1Scores[currentPlayerId] - totalSoFar;
+
+    let bust = false;
+    let win  = false;
+
+    if (dart.number === "Miss") {
+      // Miss — no score, no bust
+    } else if (newRemaining < 0 || newRemaining === 1) {
+      bust = true;
+      setBustMessage(newRemaining < 0 ? "Bust! Score exceeded." : "Bust! Can't finish on 1.");
+    } else if (newRemaining === 0) {
+      if (dart.modifier !== "double") {
+        bust = true;
+        setBustMessage("Bust! Must finish on a double.");
+      } else {
+        win = true;
+      }
+    }
+
+    setDarts(newDarts);
+    if (bust) setTurnBust(true);
+    if (win)  setTurnWin(true);
+
+    // Auto-submit after 3 darts, bust, or win
+    if (newDarts.length === 3 || bust || win) {
+      setTimeout(() => submitTurn501(newDarts, bust, win, currentPlayerId), 400);
+    }
   };
 
-  const chooseFirstThrow = (playerId) => {
-    const idx = playerOrder.indexOf(playerId);
-    setCurrentPlayerIdx(idx);
-    setAwaitingFirstThrow(false);
+  const handleDartCricket = (dart) => {
+    if (darts.length >= 3 || turnWin) return;
+    const newDarts = [...darts, dart];
+    setDarts(newDarts);
+
+    // Apply marks to cricket state and check win
+    const { newCricket, win } = applyCricketDart(dart, cricketState, currentPlayerId, opponentId);
+    setCricketState(newCricket);
+    if (win) setTurnWin(true);
+
+    if (newDarts.length === 3 || win) {
+      setTimeout(() => submitTurnCricket(newDarts, newCricket, win, currentPlayerId), 400);
+    }
   };
 
+  const applyCricketDart = (dart, state, myId, oppId) => {
+    if (dart.number === "Miss") return { newCricket: state, win: false };
 
-  const abandonMatch = async () => {
+    const num = dart.number;
+    if (!CRICKET_NUMBERS.includes(num)) return { newCricket: state, win: false };
+
+    const newCricket = JSON.parse(JSON.stringify(state));
+    const marks = dart.modifier === "triple" ? 3 : dart.modifier === "double" ? 2 : 1;
+    const myMarks  = newCricket[myId][num];
+    const oppMarks = newCricket[oppId][num];
+    const pointVal = num === "Bull" ? 25 : parseInt(num);
+
+    if (myMarks < 3) {
+      // Still closing — some marks close, overflow scores points
+      const closing   = Math.min(marks, 3 - myMarks);
+      const overflow  = marks - closing;
+      newCricket[myId][num] = myMarks + closing;
+      if (overflow > 0 && oppMarks < 3) {
+        newCricket[myId].points += overflow * pointVal;
+      }
+    } else {
+      // Already closed — score points if opponent hasn't closed
+      if (oppMarks < 3) {
+        newCricket[myId].points += marks * pointVal;
+      }
+    }
+
+    // Check win: all numbers closed AND my points >= opponent points
+    const allClosed = CRICKET_NUMBERS.every(n => newCricket[myId][n] >= 3);
+    const win = allClosed && newCricket[myId].points >= newCricket[oppId].points;
+    return { newCricket, win };
+  };
+
+  // ── Submit 501 turn ────────────────────────────────────────────────────────
+  const submitTurn501 = async (submittedDarts, bust, win, playerId) => {
     setLoading(true);
-    // Delete turns, legs, then match — cascade handles it but be explicit
-    await supabase.from("turns").delete().eq("match_id", matchData.id);
-    await supabase.from("legs").delete().eq("match_id", matchData.id);
-    await supabase.from("matches").delete().eq("id", matchData.id);
-    setLoading(false);
-    navigate("home");
-  };
+    const scored = bust ? 0 : submittedDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
+    const prevRemaining = xo1Scores[playerId];
+    const newRemaining  = bust ? prevRemaining : prevRemaining - scored;
 
-  // ── Who throws first? prompt ─────────────────────────────────────────────
-  if (awaitingFirstThrow) {
-    const isLeg5 = legNumber === 5;
-    return (
-      <div className="screen">
-        <div className="screen-header">
-          <h2>{isLeg5 ? "⚡ Leg 5 — Decider" : "Leg 1"}</h2>
-        </div>
-        <div className="leg5-choice">
-          <p className="leg5-sub">Who throws first?</p>
-          {isLeg5 && (
-            <div className="leg5-scores">
-              <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
-              <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
-            </div>
-          )}
-          <button className="btn-primary big-btn" onClick={() => chooseFirstThrow(match.match.player1_id)}>
-            🎯 {p1?.name}
-          </button>
-          <button className="btn-secondary big-btn" onClick={() => chooseFirstThrow(match.match.player2_id)}>
-            🎯 {p2?.name}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Leg 5 game type choice ───────────────────────────────────────────────
-  if (awaitingLeg5Choice) {
-    return (
-      <div className="screen">
-        <div className="screen-header">
-          <h2>⚡ Leg 5 — Choose Game</h2>
-        </div>
-        <div className="leg5-choice">
-          <p className="leg5-sub">What are you playing?</p>
-          <div className="leg5-scores">
-            <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
-            <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
-          </div>
-          <button className="btn-primary big-btn" onClick={() => { setChosenLeg5Type("501"); setAwaitingLeg5Choice(false); setAwaitingFirstThrow(true); }}>
-            🎯 501
-          </button>
-          <button className="btn-secondary big-btn" onClick={() => { setChosenLeg5Type("cricket"); setAwaitingLeg5Choice(false); setAwaitingFirstThrow(true); }}>
-            🏏 Cricket
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Match over ───────────────────────────────────────────────────────────
-  if (matchOver) {
-    return (
-      <div className="screen winner-screen">
-        <div className="winner-content">
-          <div className="winner-trophy">🏆</div>
-          <h1 className="winner-name">{winner?.name}</h1>
-          <p className="winner-sub">WINS THE MATCH!</p>
-          <div className="final-score">
-            {legScores[match.match.player1_id]} — {legScores[match.match.player2_id]}
-          </div>
-          <button className="btn-primary big-btn" onClick={() => navigate("home")}>
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Submit turn ──────────────────────────────────────────────────────────
-  const submitTurn = async () => {
-    setLoading(true);
-    setError("");
-
-    let turnData = {
-      leg_id: currentLeg.id,
-      match_id: matchData.id,
-      player_id: currentPlayerId,
+    const d = submittedDarts;
+    const turnData = {
+      leg_id:    currentLeg.id,
+      match_id:  matchData.id,
+      player_id: playerId,
       turn_number: turnNumber,
+      score:     scored,
+      score_remaining: newRemaining,
+      is_bust:   bust,
+      is_checkout_attempt: canCheckout(prevRemaining) && prevRemaining <= 170,
+      is_checkout_success: win,
+      checkout_dart: win ? d.length : null,
+      darts_thrown: d.length,
+      dart1_number:   d[0]?.number || null,
+      dart1_modifier: d[0]?.modifier || null,
+      dart1_value:    d[0] ? dartValue(d[0].number, d[0].modifier) : null,
+      dart2_number:   d[1]?.number || null,
+      dart2_modifier: d[1]?.modifier || null,
+      dart2_value:    d[1] ? dartValue(d[1].number, d[1].modifier) : null,
+      dart3_number:   d[2]?.number || null,
+      dart3_modifier: d[2]?.modifier || null,
+      dart3_value:    d[2] ? dartValue(d[2].number, d[2].modifier) : null,
     };
 
-    if (isXO1) {
-      const score = parseInt(dartScore);
-      if (isNaN(score) || score < 0 || score > 180) {
-        setError("Enter a score between 0 and 180");
-        setLoading(false);
-        return;
-      }
-      const remaining = xo1Scores[currentPlayerId] - score;
-      if (remaining < 0) {
-        setError("Score exceeds remaining — that's a bust!");
-        setLoading(false);
-        return;
-      }
-      turnData = {
-        ...turnData,
-        score,
-        score_remaining: remaining,
-        is_checkout_attempt: isCheckoutAttempt,
-        is_checkout_success: isCheckoutSuccess && isCheckoutAttempt,
-        checkout_dart: isCheckoutSuccess ? checkoutDart : null,
-      };
-    } else {
-      const totalPoints = Object.entries(cricketMarks).reduce((sum, [num, marks]) => {
-        const key = num === "Bull" ? "Bull" : parseInt(num);
-        const opponentId = playerOrder[1 - currentPlayerIdx];
-        const myState = cricketState[currentPlayerId];
-        const oppState = cricketState[opponentId];
-        if (myState[key] >= 3 && oppState[key] < 3 && marks > 0) {
-          return sum + marks * (key === "Bull" ? 25 : key);
-        }
-        return sum;
-      }, 0);
+    await supabase.from("turns").insert(turnData);
 
-      turnData = {
-        ...turnData,
-        cricket_15: cricketMarks[15],
-        cricket_16: cricketMarks[16],
-        cricket_17: cricketMarks[17],
-        cricket_18: cricketMarks[18],
-        cricket_19: cricketMarks[19],
-        cricket_20: cricketMarks[20],
-        cricket_bull: cricketMarks["Bull"],
-        cricket_points: totalPoints,
-      };
+    if (!bust) {
+      setXo1Scores(prev => ({ ...prev, [playerId]: newRemaining }));
     }
 
-    const { error: tErr } = await supabase.from("turns").insert(turnData);
-    if (tErr) { setError(tErr.message); setLoading(false); return; }
-
-    if (isXO1) {
-      const score = parseInt(dartScore);
-      const newRemaining = xo1Scores[currentPlayerId] - score;
-      setXo1Scores(prev => ({ ...prev, [currentPlayerId]: newRemaining }));
-      if (newRemaining === 0 && isCheckoutSuccess) {
-        await completeLeg(currentPlayerId);
-        setLoading(false);
-        return;
-      }
+    if (win) {
+      await completeLeg(playerId);
     } else {
-      const newCricket = JSON.parse(JSON.stringify(cricketState));
-      for (const [num, marks] of Object.entries(cricketMarks)) {
-        const key = num === "Bull" ? "Bull" : parseInt(num);
-        newCricket[currentPlayerId][key] = Math.min(3, newCricket[currentPlayerId][key] + marks);
-      }
-      setCricketState(newCricket);
-      const myState = newCricket[currentPlayerId];
-      const allClosed = [15,16,17,18,19,20,"Bull"].every(n => myState[n] >= 3);
-      const oppId = playerOrder[1 - currentPlayerIdx];
-      if (allClosed && myState.points >= newCricket[oppId].points) {
-        await completeLeg(currentPlayerId);
-        setLoading(false);
-        return;
-      }
+      advanceTurn();
     }
-
-    setTurnNumber(prev => prev + (currentPlayerIdx === 1 ? 1 : 0));
-    setCurrentPlayerIdx(1 - currentPlayerIdx);
-    resetTurnInput();
     setLoading(false);
   };
 
-  // ── Complete leg ─────────────────────────────────────────────────────────
+  // ── Submit Cricket turn ────────────────────────────────────────────────────
+  const submitTurnCricket = async (submittedDarts, finalCricket, win, playerId) => {
+    setLoading(true);
+    const d = submittedDarts;
+
+    // Calculate total marks and points this turn
+    const turnPoints = finalCricket[playerId].points - cricketState[playerId].points;
+
+    const turnData = {
+      leg_id:    currentLeg.id,
+      match_id:  matchData.id,
+      player_id: playerId,
+      turn_number: turnNumber,
+      cricket_points: turnPoints,
+      darts_thrown: d.length,
+      dart1_number:   d[0]?.number || null,
+      dart1_modifier: d[0]?.modifier || null,
+      dart1_value:    d[0] && d[0].number !== "Miss" ? (CRICKET_NUMBERS.includes(d[0].number) ? 1 : 0) : 0,
+      dart2_number:   d[1]?.number || null,
+      dart2_modifier: d[1]?.modifier || null,
+      dart2_value:    d[1] && d[1].number !== "Miss" ? (CRICKET_NUMBERS.includes(d[1].number) ? 1 : 0) : 0,
+      dart3_number:   d[2]?.number || null,
+      dart3_modifier: d[2]?.modifier || null,
+      dart3_value:    d[2] && d[2].number !== "Miss" ? (CRICKET_NUMBERS.includes(d[2].number) ? 1 : 0) : 0,
+      // Cricket mark columns
+      cricket_15:   countMarks(d, 15),
+      cricket_16:   countMarks(d, 16),
+      cricket_17:   countMarks(d, 17),
+      cricket_18:   countMarks(d, 18),
+      cricket_19:   countMarks(d, 19),
+      cricket_20:   countMarks(d, 20),
+      cricket_bull: countMarks(d, "Bull"),
+    };
+
+    await supabase.from("turns").insert(turnData);
+
+    if (win) {
+      await completeLeg(playerId);
+    } else {
+      advanceTurn();
+    }
+    setLoading(false);
+  };
+
+  const countMarks = (darts, num) => {
+    return darts.reduce((s, d) => {
+      if (d.number !== num) return s;
+      return s + (d.modifier === "triple" ? 3 : d.modifier === "double" ? 2 : 1);
+    }, 0);
+  };
+
+  const advanceTurn = () => {
+    setDarts([]);
+    setTurnBust(false);
+    setTurnWin(false);
+    setBustMessage("");
+    const nextIdx = 1 - currentPlayerIdx;
+    setCurrentPlayerIdx(nextIdx);
+    setTurnNumber(prev => prev + (nextIdx === 0 ? 1 : 0));
+  };
+
+  // ── Complete leg ───────────────────────────────────────────────────────────
   const completeLeg = async (winnerId) => {
     await supabase.from("legs").update({
       winner_id: winnerId,
@@ -270,49 +432,220 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
     const nextLegNum = legNumber + 1;
     setLegNumber(nextLegNum);
-
-    // Loser throws first for legs 2-4; leg 5 gets its own prompt after game choice
-    const loserId = playerOrder.find(id => id !== winnerId);
+    const loserId  = playerOrder.find(id => id !== winnerId);
     const loserIdx = playerOrder.indexOf(loserId);
 
     if (nextLegNum === 5) {
       const { data: newLeg } = await supabase.from("legs").insert({
-        match_id: matchData.id,
-        leg_number: 5,
-        starting_score: null,
-        game_type: null,
+        match_id: matchData.id, leg_number: 5, starting_score: null, game_type: null,
       }).select().single();
       setCurrentLeg(newLeg);
-      setCurrentPlayerIdx(loserIdx); // set but will be overridden by throw choice
       setAwaitingLeg5Choice(true);
     } else {
-      const nextGameType = LEG_SCHEDULE[nextLegNum - 1];
+      const nextType = LEG_SCHEDULE[nextLegNum - 1];
       const { data: newLeg } = await supabase.from("legs").insert({
         match_id: matchData.id,
         leg_number: nextLegNum,
-        starting_score: nextGameType === "501" ? 501 : null,
-        game_type: nextGameType,
+        starting_score: nextType === "501" ? 501 : null,
+        game_type: nextType,
       }).select().single();
       setCurrentLeg(newLeg);
-      // Loser goes first — no prompt needed
       setCurrentPlayerIdx(loserIdx);
     }
 
     setTurnNumber(1);
-    setXo1Scores({
-      [match.match.player1_id]: 501,
-      [match.match.player2_id]: 501,
-    });
-    setCricketState({
-      [match.match.player1_id]: { 15:0,16:0,17:0,18:0,19:0,20:0,Bull:0,points:0 },
-      [match.match.player2_id]: { 15:0,16:0,17:0,18:0,19:0,20:0,Bull:0,points:0 },
-    });
-    resetTurnInput();
+    setDarts([]);
+    setTurnBust(false);
+    setTurnWin(false);
+    setBustMessage("");
+    setXo1Scores({ [match.match.player1_id]: 501, [match.match.player2_id]: 501 });
+    setCricketState(initCricket());
   };
 
-  const legLabel = `Leg ${legNumber} — ${currentGameType === "501" ? "501" : "Cricket"}`;
+  const abandonMatch = async () => {
+    setLoading(true);
+    await supabase.from("turns").delete().eq("match_id", matchData.id);
+    await supabase.from("legs").delete().eq("match_id", matchData.id);
+    await supabase.from("matches").delete().eq("id", matchData.id);
+    setLoading(false);
+    navigate("home");
+  };
 
-  // ── Main match UI ────────────────────────────────────────────────────────
+  const chooseFirstThrow = (playerId) => {
+    setCurrentPlayerIdx(playerOrder.indexOf(playerId));
+    setAwaitingFirstThrow(false);
+  };
+
+  // ── Who throws first ───────────────────────────────────────────────────────
+  if (awaitingFirstThrow) {
+    return (
+      <div className="screen">
+        <div className="screen-header"><h2>{legNumber === 5 ? "⚡ Leg 5 — Decider" : "Leg 1"}</h2></div>
+        <div className="leg5-choice">
+          <p className="leg5-sub">Who throws first?</p>
+          {legNumber === 5 && (
+            <div className="leg5-scores">
+              <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
+              <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
+            </div>
+          )}
+          <button className="btn-primary big-btn" onClick={() => chooseFirstThrow(match.match.player1_id)}>🎯 {p1?.name}</button>
+          <button className="btn-secondary big-btn" onClick={() => chooseFirstThrow(match.match.player2_id)}>🎯 {p2?.name}</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Leg 5 game choice ──────────────────────────────────────────────────────
+  if (awaitingLeg5Choice) {
+    return (
+      <div className="screen">
+        <div className="screen-header"><h2>⚡ Leg 5 — Choose Game</h2></div>
+        <div className="leg5-choice">
+          <p className="leg5-sub">What are you playing?</p>
+          <div className="leg5-scores">
+            <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
+            <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
+          </div>
+          <button className="btn-primary big-btn" onClick={() => { setChosenLeg5Type("501"); setAwaitingLeg5Choice(false); setAwaitingFirstThrow(true); }}>🎯 501</button>
+          <button className="btn-secondary big-btn" onClick={() => { setChosenLeg5Type("cricket"); setAwaitingLeg5Choice(false); setAwaitingFirstThrow(true); }}>🏏 Cricket</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Match over ─────────────────────────────────────────────────────────────
+  if (matchOver) {
+    return (
+      <div className="screen winner-screen">
+        <div className="winner-content">
+          <div className="winner-trophy">🏆</div>
+          <h1 className="winner-name">{winner?.name}</h1>
+          <p className="winner-sub">WINS THE MATCH!</p>
+          <div className="final-score">{legScores[match.match.player1_id]} — {legScores[match.match.player2_id]}</div>
+          <button className="btn-primary big-btn" onClick={() => navigate("home")}>Back to Home</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Dart display strip ─────────────────────────────────────────────────────
+  const DartStrip = () => (
+    <div className="dart-strip">
+      {[0, 1, 2].map(i => {
+        const d = darts[i];
+        const isCurrent = i === darts.length && !turnBust && !turnWin;
+        let label = "·";
+        let cls = "dart-slot empty";
+        if (d) {
+          if (d.number === "Miss") {
+            label = "Miss";
+            cls = "dart-slot miss";
+          } else {
+            const prefix = d.modifier === "double" ? "D" : d.modifier === "triple" ? "T" : "";
+            label = `${prefix}${d.number}`;
+            cls = `dart-slot filled ${d.modifier}`;
+          }
+        }
+        if (isCurrent) cls += " current";
+        return <div key={i} className={cls}>{d ? label : isCurrent ? `Dart ${i+1}` : "·"}</div>;
+      })}
+    </div>
+  );
+
+  // ── 501 scoreboard ─────────────────────────────────────────────────────────
+  const XO1Scoreboard = () => {
+    const myScore    = xo1Scores[currentPlayerId];
+    const oppScore   = xo1Scores[opponentId];
+    const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
+
+    return (
+      <div className="scoreboard xo1-board">
+        <div className={`player-score active-player`}>
+          <div className="player-name">{currentPlayer?.name}</div>
+          <div className={`score-big ${turnBust ? "bust-score" : ""}`}>{liveRemain}</div>
+          <div className="legs-count">Legs: {legScores[currentPlayerId]}</div>
+          {turnBust && <div className="bust-label">BUST</div>}
+          {canCheckout(myScore) && !turnBust && myScore > 1 && <div className="checkout-label">Checkout!</div>}
+        </div>
+        <div className="score-divider">
+          <div className="leg-label">Leg {legNumber} · 501</div>
+          <div className="vs-label">vs</div>
+        </div>
+        <div className="player-score">
+          <div className="player-name">{(opponentId === match.match.player1_id ? p1 : p2)?.name}</div>
+          <div className="score-big">{oppScore}</div>
+          <div className="legs-count">Legs: {legScores[opponentId]}</div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Cricket scoreboard ─────────────────────────────────────────────────────
+  const CricketScoreboard = () => {
+    const myState  = cricketState[currentPlayerId];
+    const oppState = cricketState[opponentId];
+    const markSymbol = (n) => {
+      const m = myState[n];
+      if (m === 0) return "○";
+      if (m === 1) return "/";
+      if (m === 2) return "X";
+      return "✓";
+    };
+    const oppMarkSymbol = (n) => {
+      const m = oppState[n];
+      if (m === 0) return "○";
+      if (m === 1) return "/";
+      if (m === 2) return "X";
+      return "✓";
+    };
+
+    return (
+      <div className="cricket-board">
+        <div className="cricket-header">
+          <span>{currentPlayer?.name}</span>
+          <span></span>
+          <span>{(opponentId === match.match.player1_id ? p1 : p2)?.name}</span>
+        </div>
+        <div className="cricket-points-row">
+          <span className="cricket-pts">{myState.points}</span>
+          <span className="cricket-pts-label">pts</span>
+          <span className="cricket-pts">{oppState.points}</span>
+        </div>
+        {CRICKET_NUMBERS.map(n => (
+          <div key={n} className="cricket-score-row">
+            <span className={`mark-cell ${myState[n] >= 3 ? "closed" : ""}`}>{markSymbol(n)}</span>
+            <span className="cricket-num-label">{n}</span>
+            <span className={`mark-cell ${oppState[n] >= 3 ? "closed" : ""}`}>{oppMarkSymbol(n)}</span>
+          </div>
+        ))}
+        <div className="cricket-leg-row">
+          <span>Legs: {legScores[currentPlayerId]}</span>
+          <span>Leg {legNumber} · Cricket</span>
+          <span>Legs: {legScores[opponentId]}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Leg progress ───────────────────────────────────────────────────────────
+  const LegProgress = () => (
+    <div className="leg-progress">
+      {LEG_SCHEDULE.map((type, i) => {
+        const num    = i + 1;
+        const done   = num < legNumber;
+        const active = num === legNumber;
+        return (
+          <div key={i} className={`leg-pip ${done ? "done" : ""} ${active ? "active" : ""}`}>
+            <span className="pip-num">{num}</span>
+            <span className="pip-type">{type === "choice" ? "?" : type === "501" ? "501" : "CR"}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── Main render ────────────────────────────────────────────────────────────
   return (
     <div className="screen active-match">
       {confirmAbandon && (
@@ -323,133 +656,30 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
             <button className="btn-danger big-btn" onClick={abandonMatch} disabled={loading}>
               {loading ? "Deleting..." : "Yes, Delete It"}
             </button>
-            <button className="btn-secondary big-btn" onClick={() => setConfirmAbandon(false)}>
-              Cancel
-            </button>
+            <button className="btn-secondary big-btn" onClick={() => setConfirmAbandon(false)}>Cancel</button>
           </div>
         </div>
       )}
 
-      <div className="scoreboard">
-        <div className={`player-score ${currentPlayerIdx === 0 ? "active-player" : ""}`}>
-          <div className="player-name">{p1?.name}</div>
-          <div className="score-big">
-            {isXO1 ? xo1Scores[match.match.player1_id] : (cricketState[match.match.player1_id]?.points ?? 0)}
-          </div>
-          <div className="legs-count">Legs: {legScores[match.match.player1_id]}</div>
-        </div>
-        <div className="score-divider">
-          <div className="leg-label">{legLabel}</div>
-          <div className="vs-label">vs</div>
-        </div>
-        <div className={`player-score ${currentPlayerIdx === 1 ? "active-player" : ""}`}>
-          <div className="player-name">{p2?.name}</div>
-          <div className="score-big">
-            {isXO1 ? xo1Scores[match.match.player2_id] : (cricketState[match.match.player2_id]?.points ?? 0)}
-          </div>
-          <div className="legs-count">Legs: {legScores[match.match.player2_id]}</div>
-        </div>
-      </div>
+      <LegProgress />
 
-      <div className="leg-progress">
-        {LEG_SCHEDULE.map((type, i) => {
-          const num = i + 1;
-          const done = num < legNumber;
-          const active = num === legNumber;
-          return (
-            <div key={i} className={`leg-pip ${done ? "done" : ""} ${active ? "active" : ""}`}>
-              <span className="pip-num">{num}</span>
-              <span className="pip-type">{type === "choice" ? "?" : type === "501" ? "501" : "CR"}</span>
-            </div>
-          );
-        })}
-      </div>
+      {isXO1 ? <XO1Scoreboard /> : <CricketScoreboard />}
 
       <div className="turn-indicator">
         🎯 <strong>{currentPlayer?.name}</strong>'s turn
+        {bustMessage && <span className="bust-msg"> — {bustMessage}</span>}
       </div>
 
-      {isXO1 ? (
-        <div className="input-section">
-          <label className="form-label">3-Dart Score</label>
-          <input
-            className="score-input"
-            type="number"
-            inputMode="numeric"
-            placeholder="0 – 180"
-            value={dartScore}
-            onChange={e => setDartScore(e.target.value)}
-            autoFocus
-          />
-          <div className="quick-scores">
-            {[26, 41, 45, 60, 81, 85, 100, 121, 140, 180].map(s => (
-              <button key={s} className="quick-btn" onClick={() => setDartScore(String(s))}>{s}</button>
-            ))}
-          </div>
-          <div className="checkbox-row">
-            <label className="check-label">
-              <input type="checkbox" checked={isCheckoutAttempt} onChange={e => {
-                setIsCheckoutAttempt(e.target.checked);
-                if (!e.target.checked) { setIsCheckoutSuccess(false); setCheckoutDart(null); }
-              }} />
-              Checkout attempt?
-            </label>
-          </div>
-          {isCheckoutAttempt && (
-            <div className="checkout-section">
-              <label className="check-label">
-                <input type="checkbox" checked={isCheckoutSuccess} onChange={e => setIsCheckoutSuccess(e.target.checked)} />
-                Checked out! 🎯
-              </label>
-              {isCheckoutSuccess && (
-                <div className="checkout-dart-row">
-                  <span>Which dart?</span>
-                  {[1, 2, 3].map(d => (
-                    <button key={d} className={`dart-btn ${checkoutDart === d ? "active" : ""}`} onClick={() => setCheckoutDart(d)}>
-                      Dart {d}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="input-section">
-          <label className="form-label">Marks This Turn</label>
-          <div className="cricket-grid">
-            {CRICKET_NUMBERS.map(num => (
-              <div key={num} className="cricket-row">
-                <span className="cricket-num">{num}</span>
-                <div className="mark-buttons">
-                  {[0, 1, 2, 3].map(m => (
-                    <button
-                      key={m}
-                      className={`mark-btn ${cricketMarks[num] === m ? "active" : ""}`}
-                      onClick={() => setCricketMarks(prev => ({ ...prev, [num]: m }))}
-                    >
-                      {m === 0 ? "—" : "✕".repeat(m)}
-                    </button>
-                  ))}
-                </div>
-                <div className="cricket-status">
-                  <span className="my-marks">{Math.min(3, (cricketState[currentPlayerId][num] || 0) + cricketMarks[num])}/3</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <DartStrip />
 
-      {error && <div className="error-msg">{error}</div>}
+      {isXO1
+        ? <DartInput onSelect={handleDart501} disabled={loading || turnBust || turnWin || darts.length >= 3} />
+        : <CricketDartInput onSelect={handleDartCricket} disabled={loading || turnWin || darts.length >= 3} />
+      }
 
-      <button className="btn-primary big-btn submit-btn" onClick={submitTurn} disabled={loading}>
-        {loading ? "Saving..." : "SUBMIT TURN →"}
-      </button>
       <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>
         Abandon Match
       </button>
-
     </div>
   );
 }

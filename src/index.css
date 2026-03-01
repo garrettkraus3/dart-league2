@@ -758,3 +758,424 @@ html, body, #root {
   flex-shrink: 0;
   border-radius: var(--radius);
 }
+
+/* ── Turn panel ── */
+.turn-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.turn-player { font-size: 0.95rem; }
+
+.dart-track {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dart-slot {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+.dart-slot.filled { border-color: var(--accent); background: rgba(232,200,64,0.06); }
+.dart-slot.current { border-color: var(--accent); border-style: dashed; }
+.dart-slot.total-slot { border-color: var(--border); background: var(--surface2); }
+.dart-slot.busting { border-color: var(--accent2); background: rgba(255,77,77,0.06); }
+
+.dart-slot-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.dart-slot-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--accent); line-height: 1; }
+
+.bust-msg { color: var(--accent2); font-size: 0.85rem; font-weight: 600; text-align: center; }
+.bust-warning { color: var(--accent2); font-size: 0.8rem; text-align: center; }
+.checkout-hint { color: var(--green); font-size: 0.8rem; text-align: center; }
+
+/* ── Modifier row ── */
+.modifier-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.modifier-btn {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.modifier-btn:hover { border-color: var(--accent); color: var(--text); }
+.modifier-btn.active {
+  border-color: var(--accent);
+  background: rgba(232,200,64,0.15);
+  color: var(--accent);
+}
+
+/* ── Number grid (501) ── */
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.4rem;
+}
+
+.num-btn {
+  padding: 0.75rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-align: center;
+}
+
+.num-btn:hover { background: var(--surface2); border-color: var(--accent); }
+.num-btn:active { transform: scale(0.95); }
+.num-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.bull-btn {
+  grid-column: span 2;
+  background: rgba(232,200,64,0.08);
+  border-color: rgba(232,200,64,0.3);
+  color: var(--accent);
+}
+
+.miss-btn {
+  grid-column: span 3;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ── Cricket input grid ── */
+.cricket-input-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+.cricket-num-btn {
+  padding: 0.85rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.1s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.cricket-num-btn:hover { border-color: var(--accent); background: var(--surface2); }
+.cricket-num-btn:active { transform: scale(0.95); }
+.cricket-num-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.cricket-num-btn.closed { border-color: var(--green); background: rgba(61,220,132,0.06); }
+.cricket-num-btn.scoring { border-color: var(--accent); background: rgba(232,200,64,0.08); }
+
+.cnum { font-size: 1.1rem; font-weight: 700; }
+.cmarks { font-size: 0.75rem; color: var(--accent); min-height: 1rem; }
+
+/* ── Cricket board ── */
+.cricket-board {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cb-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.cb-row:last-child { border-bottom: none; }
+
+.cb-header {
+  background: var(--surface2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.5rem 1rem;
+}
+
+.cb-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  color: var(--accent);
+  width: 40px;
+  text-align: center;
+}
+
+.cb-marks {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  min-width: 30px;
+}
+
+.cb-marks.cb-closed { color: var(--green); }
+
+.cb-points {
+  background: var(--surface2);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+/* ── Dart input panel ── */
+.dart-input-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dart-input-panel.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.modifier-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.modifier-btn {
+  padding: 0.75rem 0.25rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.modifier-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.modifier-btn.single.active { background: rgba(240,240,240,0.1); border-color: #aaa; color: #eee; }
+.modifier-btn.double.active { background: rgba(61,220,132,0.15); border-color: var(--green); color: var(--green); }
+.modifier-btn.triple.active { background: rgba(232,200,64,0.15); border-color: var(--accent); color: var(--accent); }
+.modifier-btn.miss        { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; }
+.modifier-btn.miss.active { background: rgba(255,77,77,0.15); border-color: var(--accent2); color: var(--accent2); }
+
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+}
+
+.number-grid.locked .number-btn {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.number-btn {
+  padding: 0.7rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.number-btn:not(:disabled):hover { background: var(--surface2); border-color: var(--accent); }
+.number-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+.bull-btn {
+  grid-column: span 5;
+  font-size: 1rem;
+  padding: 0.6rem;
+}
+
+/* Cricket number grid */
+.cricket-number-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+.cricket-number-grid.locked .cricket-num-btn {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.cricket-num-btn {
+  padding: 0.9rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.cricket-num-btn:not(:disabled):hover { background: var(--surface2); border-color: var(--accent); }
+.cricket-num-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+/* ── Dart strip ── */
+.dart-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.dart-slot {
+  text-align: center;
+  padding: 0.6rem 0.25rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+
+.dart-slot.current {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: pulse-border 1s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: var(--accent); }
+  50% { border-color: rgba(232,200,64,0.3); }
+}
+
+.dart-slot.filled        { border-style: solid; border-color: var(--border); color: var(--text); }
+.dart-slot.filled.double { border-color: var(--green); color: var(--green); background: rgba(61,220,132,0.05); }
+.dart-slot.filled.triple { border-color: var(--accent); color: var(--accent); background: rgba(232,200,64,0.05); }
+.dart-slot.miss          { border-style: solid; color: #555; }
+
+/* ── 501 scoreboard update ── */
+.xo1-board { position: relative; }
+.bust-score { color: var(--accent2) !important; }
+.bust-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.9rem;
+  color: var(--accent2);
+  letter-spacing: 0.1em;
+}
+.checkout-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--green);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.bust-msg { color: var(--accent2); font-size: 0.85rem; font-weight: normal; }
+
+/* ── Cricket scoreboard ── */
+.cricket-board {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cricket-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.cricket-header span:first-child { text-align: left; color: var(--accent); }
+.cricket-header span:last-child  { text-align: right; }
+
+.cricket-points-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 0.4rem 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: rgba(232,200,64,0.03);
+}
+
+.cricket-pts {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+.cricket-pts-row .cricket-pts:last-child { text-align: right; }
+.cricket-pts-label { text-align: center; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+
+.cricket-score-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 0.35rem 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.cricket-num-label {
+  text-align: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+.mark-cell {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  color: var(--text);
+  min-width: 2rem;
+}
+
+.mark-cell:last-child { text-align: right; }
+.mark-cell.closed { color: var(--green); }
+
+.cricket-leg-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--surface2);
+  text-align: center;
+}
+
+.cricket-leg-row span:first-child { text-align: left; }
+.cricket-leg-row span:last-child  { text-align: right; }

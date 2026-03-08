@@ -219,7 +219,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
       .select(`
         week_number, match_id,
         match:match_id (
-          id, status, player1_id, player2_id, player1_legs, player2_legs, winner_id,
+          id, status, player1_id, player2_id, player1_legs, player2_legs, winner_id, legs_to_win,
           p1:player1_id(id, name), p2:player2_id(id, name), winner:winner_id(name)
         )
       `)

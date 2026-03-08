@@ -579,14 +579,14 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
         <div className="season-standings">
           <div className="standings-header">Standings</div>
           <div className="standings-row standings-label-row">
-            <span>Player</span><span>W</span><span>L</span><span>Legs</span>
+            <span>Player</span><span>W</span><span>L</span>
           </div>
           {standings.map((s, i) => (
             <div key={s.id} className={`standings-row ${i === 0 && s.wins > 0 ? "standings-leader" : ""}`}>
               <span className="standings-name">{s.name}</span>
               <span className="standings-stat">{s.wins}</span>
               <span className="standings-stat">{s.losses}</span>
-              <span className="standings-stat">{s.legs_for}–{s.legs_against}</span>
+
             </div>
           ))}
         </div>

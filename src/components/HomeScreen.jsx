@@ -1,4 +1,4 @@
-const APP_VERSION = "V2.2026.03.07.20.20.28";
+const APP_VERSION = "V2.2026.03.07.20.30.38";
 
 export default function HomeScreen({ navigate }) {
   return (

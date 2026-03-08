@@ -174,7 +174,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
       for (const [p1id, p2id] of weeks[w]) {
         const { data: match } = await supabase
           .from("matches")
-          .insert({ game_type: "501", legs_to_win: 5, player1_id: p1id, player2_id: p2id, season_id: season.id })
+          .insert({ game_type: "501", legs_to_win: isRoundRobin ? 2 : 5, player1_id: p1id, player2_id: p2id, season_id: season.id })
           .select().single();
         if (match) {
           await supabase.from("season_schedule").insert({
@@ -480,7 +480,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
               <div className="season-summary-name">{seasonName}</div>
               <div className="season-summary-meta">
                 {isRoundRobin
-                  ? `${selectedPlayers.length} players · ${totalMatches} matches · Round Robin`
+                  ? `${selectedPlayers.length} players · ${totalMatches} matches · Round Robin · Best of 3`
                   : `${selectedPlayers.length} players · ${numWeeks} weeks · ${totalMatches} total matches`}
               </div>
             </div>

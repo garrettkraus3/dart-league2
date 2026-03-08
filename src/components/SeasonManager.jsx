@@ -277,7 +277,25 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
     setScheduleLoading(false);
   };
 
+  // Check if a match is already decided (someone reached legs_to_win) and mark it complete
+  const checkAndCloseMatch = async (m) => {
+    const legsToWin = m.legs_to_win || 2;
+    const p1Legs = m.player1_legs || 0;
+    const p2Legs = m.player2_legs || 0;
+    if (p1Legs >= legsToWin || p2Legs >= legsToWin) {
+      const winnerId = p1Legs >= legsToWin ? m.player1_id : m.player2_id;
+      await supabase.from("matches").update({
+        winner_id: winnerId,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      }).eq("id", m.id);
+      return true; // match is over
+    }
+    return false;
+  };
+
   const startSeasonMatch = async (m) => {
+    if (await checkAndCloseMatch(m)) { openSeason(detailSeason); return; }
     const { data: leg } = await supabase
       .from("legs")
       .insert({ match_id: m.id, leg_number: 1, starting_score: null, game_type: null })
@@ -286,6 +304,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   };
 
   const resumeSeasonMatch = async (m) => {
+    if (await checkAndCloseMatch(m)) { openSeason(detailSeason); return; }
     const { data: legs } = await supabase
       .from("legs").select("*").eq("match_id", m.id).order("leg_number", { ascending: true });
     if (!legs || legs.length === 0) { await startSeasonMatch(m); return; }
@@ -583,8 +602,10 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
               </div>
               {matches.map(m => {
                 if (!m) return null;
-                const done = m.status === "completed";
-                const inProg = m.status === "in_progress";
+                const legsToWin = m.legs_to_win || 2;
+                const alreadyDecided = (m.player1_legs || 0) >= legsToWin || (m.player2_legs || 0) >= legsToWin;
+                const done = m.status === "completed" || alreadyDecided;
+                const inProg = m.status === "in_progress" && !alreadyDecided;
                 return (
                   <div key={m.id} className={`schedule-match-row ${done ? "done" : ""}`}>
                     <div className="schedule-match-players">

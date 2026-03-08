@@ -993,9 +993,12 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   };
 
   // ── Leg progress ───────────────────────────────────────────────────────────
-  const LegProgress = () => (
+  const LegProgress = () => {
+    const legsToWin = matchData.legs_to_win || 3;
+    const totalLegs = legsToWin * 2 - 1; // max legs in a best-of series
+    return (
     <div className="leg-progress">
-      {[1,2,3,4,5].map(num => {
+      {Array.from({ length: totalLegs }, (_, i) => i + 1).map(num => {
         const done   = num < legNumber;
         const active = num === legNumber;
         const gameType = legGameTypes[num] || (num === legNumber ? currentGameType : null);
@@ -1009,6 +1012,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       })}
     </div>
   );
+  };
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (

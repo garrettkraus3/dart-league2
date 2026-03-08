@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CRICKET_NUMBERS = [20, 19, 18, 17, 16, 15, "Bull"];
@@ -345,17 +345,19 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const { currentLeg: initialLeg } = match;
   const [currentLeg, setCurrentLeg]     = useState(initialLeg);
   const [matchData]                      = useState(match.match);
-  const [legNumber, setLegNumber]        = useState(1);
+  // Seed leg number and scores from DB (handles resume correctly)
+  const [legNumber, setLegNumber]        = useState(initialLeg?.leg_number || 1);
   const [turnNumber, setTurnNumber]      = useState(1);
   const [currentPlayerIdx, setCurrentPlayerIdx] = useState(null);
   const [legScores, setLegScores]        = useState({
-    [match.match.player1_id]: 0,
-    [match.match.player2_id]: 0,
+    [match.match.player1_id]: match.match.player1_legs || 0,
+    [match.match.player2_id]: match.match.player2_legs || 0,
   });
   const [currentGameType, setCurrentGameType] = useState(initialLeg?.game_type || null);
   const [legGameTypes, setLegGameTypes]       = useState({}); // legNumber → "501"|"cricket"
   const [awaitingGameChoice, setAwaitingGameChoice] = useState(!initialLeg?.game_type);
   const [awaitingFirstThrow, setAwaitingFirstThrow] = useState(true);
+  const [rehydrating, setRehydrating]    = useState(false);
 
   const isXO1 = currentGameType === "501";
 
@@ -439,7 +441,74 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setAwaitingGameChoice(snap.awaitingGameChoice);
   };
 
-  const p1 = players.find(p => p.id === match.match.player1_id);
+  // ── Rehydrate state from DB when resuming a match in progress ──────────────
+  useEffect(() => {
+    if (!initialLeg?.game_type || !initialLeg?.id) return; // brand new leg, nothing to load
+    const rehydrate = async () => {
+      setRehydrating(true);
+      const { data: turns } = await supabase
+        .from("turns")
+        .select("*")
+        .eq("leg_id", initialLeg.id)
+        .order("turn_number", { ascending: true });
+
+      if (!turns || turns.length === 0) {
+        setRehydrating(false);
+        return;
+      }
+
+      const p1id = match.match.player1_id;
+      const p2id = match.match.player2_id;
+
+      if (initialLeg.game_type === "501") {
+        // Reconstruct remaining scores
+        let scores = { [p1id]: 501, [p2id]: 501 };
+        for (const t of turns) {
+          if (t.score_remaining !== null) scores[t.player_id] = t.score_remaining;
+        }
+        setXo1Scores(scores);
+      } else if (initialLeg.game_type === "cricket") {
+        // Reconstruct cricket marks from last turn per player (marks are cumulative in DB)
+        // Points are stored per-turn as delta, so sum them
+        const cState = {
+          [p1id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
+          [p2id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
+        };
+        // Accumulate points (delta per turn), take latest marks (cumulative)
+        for (const t of turns) {
+          const pid = t.player_id;
+          if (!cState[pid]) continue;
+          cState[pid].points += (t.cricket_points || 0);
+        }
+        // Use the last turn per player for cumulative mark counts
+        const lastTurnByPlayer = {};
+        for (const t of turns) { lastTurnByPlayer[t.player_id] = t; }
+        for (const [pid, t] of Object.entries(lastTurnByPlayer)) {
+          if (!cState[pid]) continue;
+          cState[pid][20]     = t.cricket_20   || 0;
+          cState[pid][19]     = t.cricket_19   || 0;
+          cState[pid][18]     = t.cricket_18   || 0;
+          cState[pid][17]     = t.cricket_17   || 0;
+          cState[pid][16]     = t.cricket_16   || 0;
+          cState[pid][15]     = t.cricket_15   || 0;
+          cState[pid]["Bull"] = t.cricket_bull || 0;
+        }
+        setCricketState(cState);
+      }
+
+      // Figure out whose turn it is: last turn's player → opponent goes next
+      const lastTurn = turns[turns.length - 1];
+      const lastPlayerIdx = [p1id, p2id].indexOf(lastTurn.player_id);
+      const nextPlayerIdx = 1 - lastPlayerIdx;
+      setCurrentPlayerIdx(nextPlayerIdx);
+      setTurnNumber(lastTurn.turn_number + (nextPlayerIdx === 0 ? 1 : 0));
+      setAwaitingFirstThrow(false);
+      setRehydrating(false);
+    };
+    rehydrate();
+  }, []);
+
+    const p1 = players.find(p => p.id === match.match.player1_id);
   const p2 = players.find(p => p.id === match.match.player2_id);
   const playerOrder   = [match.match.player1_id, match.match.player2_id];
   const currentPlayerId = currentPlayerIdx !== null ? playerOrder[currentPlayerIdx] : null;
@@ -688,13 +757,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const p2Legs = newLegScores[match.match.player2_id];
     await supabase.from("matches").update({ player1_legs: p1Legs, player2_legs: p2Legs }).eq("id", matchData.id);
 
-    // Always play all 5 legs — match ends only after leg 5
-    if (legNumber >= 5) {
-      const matchWinnerId = p1Legs > p2Legs
-        ? match.match.player1_id
-        : p2Legs > p1Legs
-        ? match.match.player2_id
-        : winnerId;
+    // Match ends when a player reaches legs_to_win
+    const legsToWin = matchData.legs_to_win || 3;
+    if (p1Legs >= legsToWin || p2Legs >= legsToWin) {
+      const matchWinnerId = p1Legs >= legsToWin ? match.match.player1_id : match.match.player2_id;
       await supabase.from("matches").update({
         winner_id: matchWinnerId,
         status: "completed",
@@ -758,12 +824,21 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setAwaitingFirstThrow(false);
   };
 
+  // ── Rehydrating guard ─────────────────────────────────────────────────────
+  if (rehydrating) {
+    return (
+      <div className="screen">
+        <div className="loading">Resuming match...</div>
+      </div>
+    );
+  }
+
   // ── Game choice screen (shown before every leg) ────────────────────────────
   if (awaitingGameChoice) {
     return (
       <div className="screen">
         <div className="screen-header">
-          <h2>Leg {legNumber} of 5</h2>
+          <h2>Leg {legNumber}</h2>
         </div>
         <div className="leg5-choice">
           <div className="leg5-scores">

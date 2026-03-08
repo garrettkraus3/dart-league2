@@ -526,7 +526,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
     const myMarks  = newCricket[myId][num];
     const oppMarks = newCricket[oppId][num];
-    const pointVal = 25; // bull scoring value
+    const pointVal = isBull ? 25 : parseInt(num);
 
     if (myMarks < 3) {
       const closing  = Math.min(marks, 3 - myMarks);

@@ -70,8 +70,23 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
       return;
     }
 
-    // Find the most recent incomplete leg (status != completed), or last leg if all done
-    const currentLeg = legs.find(l => l.status !== "completed") || legs[legs.length - 1];
+    // Find the most recent incomplete leg
+    let currentLeg = legs.find(l => l.status !== "completed");
+
+    // If all legs are completed but match is still in_progress, create the next leg
+    if (!currentLeg && match.status !== "completed") {
+      const nextLegNum = legs.length + 1;
+      const { data: newLeg } = await supabase.from("legs").insert({
+        match_id: match.id,
+        leg_number: nextLegNum,
+        game_type: null,
+        status: "in_progress",
+      }).select().single();
+      currentLeg = newLeg;
+    }
+
+    // Last fallback: just use the last leg
+    if (!currentLeg) currentLeg = legs[legs.length - 1];
 
     navigate("active", { match, currentLeg });
     setResumeLoading(null);

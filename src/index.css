@@ -1628,6 +1628,23 @@ html, body, #root {
   border-color: var(--accent);
 }
 
+.btn-forfeit {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-left: 0.3rem;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.btn-forfeit:hover {
+  opacity: 1;
+  border-color: #e05555;
+}
+
 /* ── Season preview expand button ── */
 .preview-more-btn {
   width: 100%;

@@ -89,6 +89,10 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   const [standings, setStandings]         = useState([]);
   const [seasonPlayerIds, setSeasonPlayerIds] = useState([]);
   const [confirmDeleteSeason, setConfirmDeleteSeason] = useState(null);
+  const [forfeitMatch, setForfeitMatch] = useState(null);       // match to forfeit
+  const [forfeitPassword, setForfeitPassword] = useState("");
+  const [forfeitError, setForfeitError] = useState("");
+  const [forfeitLoading, setForfeitLoading] = useState(false);
 
   useEffect(() => { loadSeasons(); }, []);
 
@@ -321,6 +325,41 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
     }
     if (!currentLeg) currentLeg = legs[legs.length - 1];
     navigate("active", { match: m, currentLeg });
+  };
+
+  const openForfeit = (m) => {
+    setForfeitMatch(m);
+    setForfeitPassword("");
+    setForfeitError("");
+  };
+
+  const submitForfeit = async (forfeitingPlayerId) => {
+    if (forfeitPassword !== ADMIN_PASSWORD) {
+      setForfeitError("Wrong password.");
+      return;
+    }
+    setForfeitLoading(true);
+    const m = forfeitMatch;
+    const winnerId = forfeitingPlayerId === m.player1_id ? m.player2_id : m.player1_id;
+    const legsToWin = m.legs_to_win || 2;
+    const winnerLegs = legsToWin;
+    const loserLegs = 0;
+    const p1Legs = winnerId === m.player1_id ? winnerLegs : loserLegs;
+    const p2Legs = winnerId === m.player2_id ? winnerLegs : loserLegs;
+
+    await supabase.from("matches").update({
+      status: "completed",
+      winner_id: winnerId,
+      player1_legs: p1Legs,
+      player2_legs: p2Legs,
+      completed_at: new Date().toISOString(),
+    }).eq("id", m.id);
+
+    setForfeitMatch(null);
+    setForfeitPassword("");
+    setForfeitError("");
+    setForfeitLoading(false);
+    openSeason(detailSeason);
   };
 
   const getByesForWeek = (matches, seasonPlayerIds) => {
@@ -574,6 +613,35 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
             </div>
           </div>
         )}
+
+        {forfeitMatch && (
+          <div className="abandon-overlay">
+            <div className="abandon-card">
+              <h3>🏳 Forfeit Match</h3>
+              <p>Who is forfeiting?</p>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                <button className="btn-danger" style={{ flex: 1 }}
+                  onClick={() => !forfeitLoading && submitForfeit(forfeitMatch.player1_id)}>
+                  {forfeitMatch.p1?.name}
+                </button>
+                <button className="btn-danger" style={{ flex: 1 }}
+                  onClick={() => !forfeitLoading && submitForfeit(forfeitMatch.player2_id)}>
+                  {forfeitMatch.p2?.name}
+                </button>
+              </div>
+              <input
+                className="score-input"
+                type="password"
+                placeholder="Admin password"
+                value={forfeitPassword}
+                onChange={e => { setForfeitPassword(e.target.value); setForfeitError(""); }}
+                onKeyDown={e => e.key === "Enter" && document.activeElement.blur()}
+              />
+              {forfeitError && <div className="error-msg">{forfeitError}</div>}
+              <button className="btn-secondary big-btn" style={{ marginTop: "0.5rem" }} onClick={() => setForfeitMatch(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
         <div className="screen-header">
           <button className="back-btn" onClick={() => { setView("list"); loadSeasons(); }}>← Back</button>
           <h2>{detailSeason.name}</h2>
@@ -635,6 +703,9 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                           onClick={() => inProg ? resumeSeasonMatch(m) : startSeasonMatch(m)}>
                           {inProg ? "▶ Resume" : "▶ Play"}
                         </button>
+                      )}
+                      {!done && (
+                        <button className="btn-forfeit" onClick={() => openForfeit(m)} title="Forfeit">🏳</button>
                       )}
                     </div>
                   </div>

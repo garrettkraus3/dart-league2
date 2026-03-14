@@ -114,16 +114,17 @@ export default function StatsPage({ supabase, players, navigate }) {
     // ── Compute 01 stats ────────────────────────────────────────────────────
     const xo1LegIds = new Set((legs || []).filter(l => l.game_type === "501" || l.game_type === "301").map(l => l.id));
 
-    const xo1Turns = turns.filter(t => t.leg_id && xo1LegIds.has(t.leg_id) && t.value !== null);
+    const xo1Turns = turns.filter(t => t.leg_id && xo1LegIds.has(t.leg_id) && t.score !== null);
 
     // Group turns by (leg_id, turn_number) to get per-round totals
+    // Each turn row = one full 3-dart round (one row per turn in new schema)
     const roundMap = {};
     for (const t of xo1Turns) {
       const key = `${t.leg_id}-${t.turn_number}`;
       if (!roundMap[key]) roundMap[key] = { score: 0, isBust: false, isCheckout: false, remaining: null };
-      roundMap[key].score += t.value || 0;
+      roundMap[key].score += t.score || 0;
       if (t.is_bust) roundMap[key].isBust = true;
-      if (t.is_checkout) roundMap[key].isCheckout = true;
+      if (t.is_checkout_success) roundMap[key].isCheckout = true;
       if (t.score_remaining !== null) roundMap[key].remaining = t.score_remaining;
     }
     const rounds = Object.values(roundMap);

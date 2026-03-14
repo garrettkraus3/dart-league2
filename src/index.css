@@ -1595,6 +1595,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  gap: 0.4rem;
 }
 
 .schedule-score {
@@ -1630,15 +1631,15 @@ html, body, #root {
 
 .btn-forfeit {
   background: none;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
   color: var(--text-muted);
   border-radius: 6px;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.85rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.9rem;
   cursor: pointer;
-  margin-left: 0.3rem;
-  opacity: 0.6;
+  opacity: 0.75;
   transition: opacity 0.15s;
+  flex-shrink: 0;
 }
 .btn-forfeit:hover {
   opacity: 1;

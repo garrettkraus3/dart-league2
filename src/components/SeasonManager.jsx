@@ -692,7 +692,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                       <span className="vs-small">vs</span>
                       <span className={m.winner_id === m.player2_id ? "schedule-winner" : ""}>{m.p2?.name}</span>
                     </div>
-                    <div className="schedule-match-right">
+                    <div className="schedule-match-right" style={{ overflow: "visible" }}>
                       {done && <span className="schedule-score">{m.player1_legs}–{m.player2_legs}</span>}
                       {inProg && (m.player1_legs > 0 || m.player2_legs > 0) && (
                         <span className="schedule-score in-progress-score">{m.player1_legs}–{m.player2_legs}</span>

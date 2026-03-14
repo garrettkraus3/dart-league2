@@ -1603,6 +1603,12 @@ html, body, #root {
   color: var(--text-muted);
 }
 
+.schedule-score.in-progress-score {
+  color: var(--accent);
+  opacity: 0.8;
+  margin-right: 0.4rem;
+}
+
 .btn-play {
   background: rgba(232,200,64,0.1);
   border: 1px solid rgba(232,200,64,0.4);

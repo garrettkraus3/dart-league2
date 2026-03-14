@@ -308,7 +308,18 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
     const { data: legs } = await supabase
       .from("legs").select("*").eq("match_id", m.id).order("leg_number", { ascending: true });
     if (!legs || legs.length === 0) { await startSeasonMatch(m); return; }
-    const currentLeg = legs.find(l => l.status !== "completed") || legs[legs.length - 1];
+    let currentLeg = legs.find(l => l.status !== "completed");
+    if (!currentLeg && m.status !== "completed") {
+      const nextLegNum = legs.length + 1;
+      const { data: newLeg } = await supabase.from("legs").insert({
+        match_id: m.id,
+        leg_number: nextLegNum,
+        game_type: null,
+        status: "in_progress",
+      }).select().single();
+      currentLeg = newLeg;
+    }
+    if (!currentLeg) currentLeg = legs[legs.length - 1];
     navigate("active", { match: m, currentLeg });
   };
 
@@ -615,6 +626,9 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                     </div>
                     <div className="schedule-match-right">
                       {done && <span className="schedule-score">{m.player1_legs}–{m.player2_legs}</span>}
+                      {inProg && (m.player1_legs > 0 || m.player2_legs > 0) && (
+                        <span className="schedule-score in-progress-score">{m.player1_legs}–{m.player2_legs}</span>
+                      )}
                       {!done && (
                         <button
                           className={inProg ? "btn-resume" : "btn-play"}

@@ -275,7 +275,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
       }
       const sorted = Object.entries(playerMap)
         .map(([id, s]) => ({ id, ...s }))
-        .sort((a, b) => b.wins - a.wins || (b.legs_for - b.legs_against) - (a.legs_for - a.legs_against));
+        .sort((a, b) => b.legs_for - a.legs_for || (b.legs_for - b.legs_against) - (a.legs_for - a.legs_against));
       setStandings(sorted);
     }
     setScheduleLoading(false);
@@ -661,11 +661,10 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
             <span>Player</span><span>W</span><span>L</span>
           </div>
           {standings.map((s, i) => (
-            <div key={s.id} className={`standings-row ${i === 0 && s.wins > 0 ? "standings-leader" : ""}`}>
+            <div key={s.id} className={`standings-row ${i === 0 && s.legs_for > 0 ? "standings-leader" : ""}`}>
               <span className="standings-name">{s.name}</span>
-              <span className="standings-stat">{s.wins}</span>
-              <span className="standings-stat">{s.losses}</span>
-
+              <span className="standings-stat">{s.legs_for}</span>
+              <span className="standings-stat">{s.legs_against}</span>
             </div>
           ))}
         </div>

@@ -84,9 +84,6 @@ export default function StatsPage({ supabase, players, navigate }) {
 
     if (!matches || matches.length === 0) return { xo1: null, cricket: null };
 
-    const xo1Matches = matches.filter(m => m.game_type === "501" || m.game_type === "301");
-    const cricketMatches = matches.filter(m => m.game_type === "cricket");
-
     // Get all completed legs for these matches
     const allMatchIds = matches.map(m => m.id);
     const { data: legs } = await supabase
@@ -94,6 +91,12 @@ export default function StatsPage({ supabase, players, navigate }) {
       .select("id, match_id, winner_id, game_type")
       .in("match_id", allMatchIds)
       .eq("status", "completed");
+
+    // Derive which matches had 501 or cricket legs (game type lives on the leg)
+    const matchesWith501 = new Set((legs || []).filter(l => l.game_type === "501" || l.game_type === "301").map(l => l.match_id));
+    const matchesWithCricket = new Set((legs || []).filter(l => l.game_type === "cricket").map(l => l.match_id));
+    const xo1Matches = matches.filter(m => matchesWith501.has(m.id));
+    const cricketMatches = matches.filter(m => matchesWithCricket.has(m.id));
 
     const legIds = (legs || []).map(l => l.id);
 
@@ -109,10 +112,7 @@ export default function StatsPage({ supabase, players, navigate }) {
     }
 
     // ── Compute 01 stats ────────────────────────────────────────────────────
-    const xo1LegIds = new Set((legs || []).filter(l => {
-      const m = matches.find(m => m.id === l.match_id);
-      return m && (m.game_type === "501" || m.game_type === "301");
-    }).map(l => l.id));
+    const xo1LegIds = new Set((legs || []).filter(l => l.game_type === "501" || l.game_type === "301").map(l => l.id));
 
     const xo1Turns = turns.filter(t => t.leg_id && xo1LegIds.has(t.leg_id) && t.value !== null);
 
@@ -153,10 +153,7 @@ export default function StatsPage({ supabase, players, navigate }) {
     };
 
     // ── Compute cricket stats ───────────────────────────────────────────────
-    const cricketLegIds = new Set((legs || []).filter(l => {
-      const m = matches.find(m => m.id === l.match_id);
-      return m && m.game_type === "cricket";
-    }).map(l => l.id));
+    const cricketLegIds = new Set((legs || []).filter(l => l.game_type === "cricket").map(l => l.id));
 
     const cricketTurns = turns.filter(t => t.leg_id && cricketLegIds.has(t.leg_id));
 
@@ -165,7 +162,9 @@ export default function StatsPage({ supabase, players, navigate }) {
     for (const t of cricketTurns) {
       const key = `${t.leg_id}-${t.turn_number}`;
       if (!cRoundMap[key]) cRoundMap[key] = { marks: 0, points: 0 };
-      cRoundMap[key].marks += (t.cricket_marks || 0);
+      cRoundMap[key].marks += (t.cricket_15 || 0) + (t.cricket_16 || 0) + (t.cricket_17 || 0) +
+                               (t.cricket_18 || 0) + (t.cricket_19 || 0) + (t.cricket_20 || 0) +
+                               (t.cricket_bull || 0) + (t.cricket_dbull || 0) * 2;
       cRoundMap[key].points += (t.cricket_points || 0);
     }
     const cRounds = Object.values(cRoundMap);

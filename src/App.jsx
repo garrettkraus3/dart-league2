@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from "./supabaseClient";
+import { useDesktop } from "./hooks/useDesktop";
 
 import HomeScreen from "./components/HomeScreen";
 import NewMatch from "./components/NewMatch";
@@ -13,6 +9,7 @@ import Leaderboard from "./components/Leaderboard";
 import StatsPage from "./components/StatsPage";
 import AdminPanel from "./components/AdminPanel";
 import SeasonManager from "./components/SeasonManager";
+import DesktopShell from "./components/desktop/DesktopShell";
 
 function GlobalSpinner() {
   return (
@@ -30,6 +27,7 @@ export default function App() {
   const [activeMatch, setActiveMatch] = useState(null);
   const [players, setPlayers] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(false);
+  const isDesktop = useDesktop();
 
   useEffect(() => {
     supabase.from("players").select("*").order("name").then(({ data }) => {
@@ -42,16 +40,22 @@ export default function App() {
     setView(v);
   };
 
+  // ── Desktop view ──────────────────────────────────────────
+  if (isDesktop) {
+    return <DesktopShell supabase={supabase} players={players} />;
+  }
+
+  // ── Mobile view (unchanged) ───────────────────────────────
   return (
     <div className="app">
       {globalLoading && <GlobalSpinner />}
-      {view === "home"    && <HomeScreen navigate={navigate} />}
-      {view === "new"     && <NewMatch players={players} supabase={supabase} navigate={navigate} />}
-      {view === "active"  && <ActiveMatch match={activeMatch} players={players} supabase={supabase} navigate={navigate} />}
+      {view === "home"        && <HomeScreen navigate={navigate} />}
+      {view === "new"         && <NewMatch players={players} supabase={supabase} navigate={navigate} />}
+      {view === "active"      && <ActiveMatch match={activeMatch} players={players} supabase={supabase} navigate={navigate} />}
       {view === "leaderboard" && <Leaderboard supabase={supabase} navigate={navigate} />}
-      {view === "stats"   && <StatsPage supabase={supabase} players={players} navigate={navigate} />}
-      {view === "admin"   && <AdminPanel supabase={supabase} players={players} setPlayers={setPlayers} navigate={navigate} setGlobalLoading={setGlobalLoading} />}
-      {view === "seasons" && <SeasonManager supabase={supabase} players={players} navigate={navigate} setGlobalLoading={setGlobalLoading} />}
+      {view === "stats"       && <StatsPage supabase={supabase} players={players} navigate={navigate} />}
+      {view === "admin"       && <AdminPanel supabase={supabase} players={players} setPlayers={setPlayers} navigate={navigate} setGlobalLoading={setGlobalLoading} />}
+      {view === "seasons"     && <SeasonManager supabase={supabase} players={players} navigate={navigate} setGlobalLoading={setGlobalLoading} />}
     </div>
   );
 }

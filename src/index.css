@@ -31,6 +31,14 @@ html, body, #root {
   flex-direction: column;
 }
 
+/* ── Desktop overrides ── */
+@media (min-width: 1024px) {
+  html, body, #root {
+    overflow: hidden;
+    height: 100vh;
+  }
+}
+
 /* ── Home ── */
 .home {
   display: flex;

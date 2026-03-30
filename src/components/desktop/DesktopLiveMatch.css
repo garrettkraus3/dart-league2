@@ -433,3 +433,28 @@
 .leg-result__winner { font-size: 13px; color: #e8c440; font-weight: 700; margin-top: 2px; }
 
 .leg-history__empty { font-size: 12px; color: rgba(255,255,255,0.2); text-align: center; padding: 20px 0; }
+
+/* Leg dot game type label */
+.leg-dot {
+  flex-direction: column;
+  gap: 2px;
+}
+.leg-dot__type {
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+/* Cricket mark symbols */
+.mark-empty { color: rgba(255,255,255,0.15); font-size: 20px; }
+.mark-one   { color: #e8c440; font-size: 22px; font-weight: 700; }
+.mark-two   { color: #e8c440; font-size: 20px; font-weight: 700; }
+.mark-closed{ color: #22c55e; font-size: 18px; }
+
+/* Throw log empty state */
+.throw-log__empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: rgba(255,255,255,0.2);
+  font-size: 12px;
+}

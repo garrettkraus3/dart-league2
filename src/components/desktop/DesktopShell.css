@@ -1,11 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
 
 .desktop-shell {
   display: flex;
   width: 100vw;
   height: 100vh;
+  max-width: 100vw;
   overflow: hidden;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   background: #0a0a0f;
 }
 
@@ -23,7 +25,7 @@
   right: 12px;
   font-size: 9px;
   color: rgba(255,255,255,0.12);
-  font-family: 'DM Mono', monospace;
+  font-family: "Cascadia Code", "Cascadia Mono", "Consolas", "SF Mono", "Fira Code", monospace;
   pointer-events: none;
   z-index: 100;
 }
@@ -36,7 +38,7 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-  font-family: 'Syne', sans-serif;
+  font-family: "Segoe UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
 }
 
 .desktop-home__header {
@@ -76,7 +78,7 @@
   border-radius: 16px;
   cursor: pointer;
   text-align: left;
-  font-family: 'Syne', sans-serif;
+  font-family: "Segoe UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   transition: all 0.2s;
   position: relative;
   overflow: hidden;
@@ -144,7 +146,7 @@
   justify-content: center;
   gap: 12px;
   background: #f8f9fc;
-  font-family: 'Syne', sans-serif;
+  font-family: "Segoe UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   text-align: center;
   padding: 48px;
 }
@@ -171,7 +173,7 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-family: 'Syne', sans-serif;
+  font-family: "Segoe UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;

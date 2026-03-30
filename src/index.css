@@ -36,6 +36,10 @@ html, body, #root {
   html, body, #root {
     overflow: hidden;
     height: 100vh;
+    max-width: 100%;
+  }
+  .app {
+    max-width: 100%;
   }
 }
 

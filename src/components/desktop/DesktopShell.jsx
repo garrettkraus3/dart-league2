@@ -4,7 +4,7 @@ import DesktopStatsDashboard from "./DesktopStatsDashboard";
 import DesktopLiveMatch from "./DesktopLiveMatch";
 import "./DesktopShell.css";
 
-const APP_VERSION = "V2.2026.03.29.21.10.22";
+const APP_VERSION = "V2.2026.03.29.21.15.00";
 
 export default function DesktopShell({ supabase, players }) {
   const [activePage, setActivePage] = useState("dashboard");

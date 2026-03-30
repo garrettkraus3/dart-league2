@@ -118,12 +118,15 @@ export default function DesktopLiveMatch({ supabase }) {
       player2: playerMap[m.player2_id] || { id: m.player2_id, name: "Player 2" },
     }));
 
-    setMatches(enriched);
+    // Only show matches that have actually been played (have started_at and are not pending)
+    // DB fix already sets unplayed season matches to 'pending', but guard here too
+    const playedMatches = enriched.filter(m => m.status === "in_progress" || m.status === "completed");
+    setMatches(playedMatches);
     setLoading(false);
 
     // Auto-select the first in_progress match, or first overall
-    if (!selectedMatchId && enriched.length > 0) {
-      const live = enriched.find(m => m.status === "in_progress") || enriched[0];
+    if (!selectedMatchId && playedMatches.length > 0) {
+      const live = playedMatches.find(m => m.status === "in_progress") || playedMatches[0];
       setSelectedMatchId(live.id);
     }
   }
@@ -189,24 +192,24 @@ export default function DesktopLiveMatch({ supabase }) {
     // Points are stored as delta per turn — sum them
     if (legTurns.length === 0) return { board: {}, points: 0 };
 
-    // Sort ascending to get latest
-    const sorted = [...legTurns].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    const latest = sorted[sorted.length - 1];
+    // Marks are stored as PER-TURN delta (marks hit THIS turn), so SUM across all turns
+    const board = { 20: 0, 19: 0, 18: 0, 17: 0, 16: 0, 15: 0, "Bull": 0 };
+    let points = 0;
 
-    const board = {
-      20: latest.cricket_20 || 0,
-      19: latest.cricket_19 || 0,
-      18: latest.cricket_18 || 0,
-      17: latest.cricket_17 || 0,
-      16: latest.cricket_16 || 0,
-      15: latest.cricket_15 || 0,
-      "Bull": (latest.cricket_bull || 0) + (latest.cricket_dbull || 0) * 2,
-    };
+    legTurns.forEach(t => {
+      board[20] += t.cricket_20 || 0;
+      board[19] += t.cricket_19 || 0;
+      board[18] += t.cricket_18 || 0;
+      board[17] += t.cricket_17 || 0;
+      board[16] += t.cricket_16 || 0;
+      board[15] += t.cricket_15 || 0;
+      board["Bull"] += (t.cricket_bull || 0) + (t.cricket_dbull || 0);
+      points += t.cricket_points || 0;
+    });
 
-    // Cap at 3
+    // Cap each number at 3 marks (closed)
     Object.keys(board).forEach(k => { board[k] = Math.min(3, board[k]); });
 
-    const points = sorted.reduce((sum, t) => sum + (t.cricket_points || 0), 0);
     return { board, points };
   }
 

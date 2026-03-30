@@ -695,14 +695,14 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       dart3_number:   d[2]?.number || null,
       dart3_modifier: d[2]?.modifier || null,
       dart3_value:    d[2] && d[2].number !== "Miss" ? (CRICKET_NUMBERS.includes(d[2].number) ? 1 : 0) : 0,
-      cricket_15:   countMarks(d, 15),
-      cricket_16:   countMarks(d, 16),
-      cricket_17:   countMarks(d, 17),
-      cricket_18:   countMarks(d, 18),
-      cricket_19:   countMarks(d, 19),
-      cricket_20:   countMarks(d, 20),
-      cricket_bull:  countMarks(d, "Bull"),   // single bull hits
-      cricket_dbull: countMarks(d, "DBull"),  // double bull hits
+      cricket_15:   Math.min(3, countMarks(d, 15)),
+      cricket_16:   Math.min(3, countMarks(d, 16)),
+      cricket_17:   Math.min(3, countMarks(d, 17)),
+      cricket_18:   Math.min(3, countMarks(d, 18)),
+      cricket_19:   Math.min(3, countMarks(d, 19)),
+      cricket_20:   Math.min(3, countMarks(d, 20)),
+      cricket_bull:  Math.min(3, countMarks(d, "Bull")),   // single bull hits, capped at 3
+      cricket_dbull: Math.min(2, countMarks(d, "DBull")),  // double bull hits, max 1 per dart = 2 darts max
     };
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
@@ -757,16 +757,20 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const p2Legs = newLegScores[match.match.player2_id];
     await supabase.from("matches").update({ player1_legs: p1Legs, player2_legs: p2Legs }).eq("id", matchData.id);
 
-    // Match ends when a player reaches legs_to_win
-    const legsToWin = matchData.legs_to_win || 3;
-    if (p1Legs >= legsToWin || p2Legs >= legsToWin) {
-      const matchWinnerId = p1Legs >= legsToWin ? match.match.player1_id : match.match.player2_id;
+    // All 5 legs are always played. After leg 5, whoever has more legs wins.
+    const TOTAL_LEGS = 5;
+    if (legNumber >= TOTAL_LEGS) {
+      const matchWinnerId = p1Legs > p2Legs
+        ? match.match.player1_id
+        : p2Legs > p1Legs
+        ? match.match.player2_id
+        : null; // tie - shouldn't happen but handle gracefully
       await supabase.from("matches").update({
         winner_id: matchWinnerId,
         status: "completed",
         completed_at: new Date().toISOString(),
       }).eq("id", matchData.id);
-      setWinner(players.find(p => p.id === matchWinnerId));
+      setWinner(matchWinnerId ? players.find(p => p.id === matchWinnerId) : null);
       setMatchOver(true);
       return;
     }
@@ -879,8 +883,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       <div className="screen winner-screen">
         <div className="winner-content">
           <div className="winner-trophy">🏆</div>
-          <h1 className="winner-name">{winner?.name}</h1>
-          <p className="winner-sub">WINS THE MATCH!</p>
+          <h1 className="winner-name">{winner?.name || "Tie!"}</h1>
+          <p className="winner-sub">{winner ? "WINS THE MATCH!" : "MATCH TIED"}</p>
           <div className="final-score">{legScores[match.match.player1_id]} — {legScores[match.match.player2_id]}</div>
           <button className="btn-primary big-btn" onClick={() => navigate("home")}>Back to Home</button>
         </div>
@@ -994,8 +998,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   // ── Leg progress ───────────────────────────────────────────────────────────
   const LegProgress = () => {
-    const legsToWin = matchData.legs_to_win || 3;
-    const totalLegs = legsToWin * 2 - 1; // max legs in a best-of series
+    const totalLegs = 5; // All 5 legs are always played
     return (
     <div className="leg-progress">
       {Array.from({ length: totalLegs }, (_, i) => i + 1).map(num => {

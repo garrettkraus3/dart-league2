@@ -178,7 +178,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
       for (const [p1id, p2id] of weeks[w]) {
         const { data: match } = await supabase
           .from("matches")
-          .insert({ game_type: "501", legs_to_win: isRoundRobin ? 2 : 5, player1_id: p1id, player2_id: p2id, season_id: season.id })
+          .insert({ game_type: "501", legs_to_win: 5, player1_id: p1id, player2_id: p2id, season_id: season.id, status: "pending" })
           .select().single();
         if (match) {
           await supabase.from("season_schedule").insert({
@@ -283,11 +283,11 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
 
   // Check if a match is already decided (someone reached legs_to_win) and mark it complete
   const checkAndCloseMatch = async (m) => {
-    const legsToWin = m.legs_to_win || 2;
+    const TOTAL_LEGS = 5;
     const p1Legs = m.player1_legs || 0;
     const p2Legs = m.player2_legs || 0;
-    if (p1Legs >= legsToWin || p2Legs >= legsToWin) {
-      const winnerId = p1Legs >= legsToWin ? m.player1_id : m.player2_id;
+    if (p1Legs + p2Legs >= TOTAL_LEGS || m.status === "completed") {
+      const winnerId = p1Legs > p2Legs ? m.player1_id : p2Legs > p1Legs ? m.player2_id : null;
       await supabase.from("matches").update({
         winner_id: winnerId,
         status: "completed",
@@ -300,6 +300,11 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
 
   const startSeasonMatch = async (m) => {
     if (await checkAndCloseMatch(m)) { openSeason(detailSeason); return; }
+    // Flip pending -> in_progress when actually starting
+    if (m.status === "pending") {
+      await supabase.from("matches").update({ status: "in_progress" }).eq("id", m.id);
+      m = { ...m, status: "in_progress" };
+    }
     const { data: leg } = await supabase
       .from("legs")
       .insert({ match_id: m.id, leg_number: 1, starting_score: null, game_type: null })
@@ -341,11 +346,11 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
     setForfeitLoading(true);
     const m = forfeitMatch;
     const winnerId = forfeitingPlayerId === m.player1_id ? m.player2_id : m.player1_id;
-    const legsToWin = m.legs_to_win || 2;
-    const winnerLegs = legsToWin;
-    const loserLegs = 0;
-    const p1Legs = winnerId === m.player1_id ? winnerLegs : loserLegs;
-    const p2Legs = winnerId === m.player2_id ? winnerLegs : loserLegs;
+    // On forfeit, award win to the winner based on current leg count
+    // The forfeiting player keeps 0 legs, winner gets credited with enough to win
+    const p1IsWinner = winnerId === m.player1_id;
+    const p1Legs = p1IsWinner ? Math.max(m.player1_legs || 0, Math.ceil(5/2) + 1) : 0;
+    const p2Legs = !p1IsWinner ? Math.max(m.player2_legs || 0, Math.ceil(5/2) + 1) : 0;
 
     await supabase.from("matches").update({
       status: "completed",
@@ -680,10 +685,9 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
               </div>
               {matches.map(m => {
                 if (!m) return null;
-                const legsToWin = m.legs_to_win || 2;
-                const alreadyDecided = (m.player1_legs || 0) >= legsToWin || (m.player2_legs || 0) >= legsToWin;
-                const done = m.status === "completed" || alreadyDecided;
-                const inProg = m.status === "in_progress" && !alreadyDecided;
+                const done = m.status === "completed";
+                const inProg = m.status === "in_progress" && (m.player1_legs > 0 || m.player2_legs > 0);
+                const isPending = m.status === "pending" || (m.status === "in_progress" && m.player1_legs === 0 && m.player2_legs === 0);
                 return (
                   <div key={m.id} className={`schedule-match-row ${done ? "done" : ""}`}>
                     <div className="schedule-match-players">
@@ -700,7 +704,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                         <button
                           className={inProg ? "btn-resume" : "btn-play"}
                           onClick={() => inProg ? resumeSeasonMatch(m) : startSeasonMatch(m)}>
-                          {inProg ? "▶ Resume" : "▶ Play"}
+                          {inProg ? "▶ Resume" : isPending ? "▶ Play" : "▶ Start"}
                         </button>
                       )}
                       {!done && (

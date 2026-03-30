@@ -19,7 +19,7 @@ export default function NewMatch({ players, supabase, navigate }) {
       .from("matches")
       .insert({
         game_type: "501", // overall match type, individual legs track their own
-        legs_to_win: 3,
+        legs_to_win: 5, // all 5 legs are always played
         player1_id: p1,
         player2_id: p2,
       })

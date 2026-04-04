@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import { useDesktop } from "./hooks/useDesktop";
 
 import HomeScreen from "./components/HomeScreen";
 import NewMatch from "./components/NewMatch";
@@ -9,7 +8,6 @@ import Leaderboard from "./components/Leaderboard";
 import StatsPage from "./components/StatsPage";
 import AdminPanel from "./components/AdminPanel";
 import SeasonManager from "./components/SeasonManager";
-import DesktopShell from "./components/desktop/DesktopShell";
 
 function GlobalSpinner() {
   return (
@@ -27,7 +25,6 @@ export default function App() {
   const [activeMatch, setActiveMatch] = useState(null);
   const [players, setPlayers] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(false);
-  const isDesktop = useDesktop();
 
   useEffect(() => {
     supabase.from("players").select("*").order("name").then(({ data }) => {
@@ -40,12 +37,6 @@ export default function App() {
     setView(v);
   };
 
-  // ── Desktop view ──────────────────────────────────────────
-  if (isDesktop) {
-    return <DesktopShell supabase={supabase} players={players} />;
-  }
-
-  // ── Mobile view (unchanged) ───────────────────────────────
   return (
     <div className="app">
       {globalLoading && <GlobalSpinner />}

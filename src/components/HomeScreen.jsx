@@ -24,7 +24,7 @@ export default function HomeScreen({ navigate }) {
         </button>
         <button className="btn-secondary big-btn" onClick={() => navigate("stats")}>
           <span className="btn-icon">📊</span>
-          PLAYER STATS
+          STATS
         </button>
         <button className="btn-admin" onClick={() => navigate("admin")}>
           ⚙️ Admin

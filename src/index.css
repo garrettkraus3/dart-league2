@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap');
 
 :root {
-  --bg: #0d0d0f;
-  --surface: #18181c;
-  --surface2: #22222a;
-  --border: #2e2e3a;
-  --accent: #e8c840;
-  --accent2: #ff4d4d;
+  --bg: #0b162a;
+  --surface: #0f1f3d;
+  --surface2: #162848;
+  --border: #1e3460;
+  --accent: #e64100;
+  --accent2: #e03030;
   --green: #3ddc84;
-  --text: #f0f0f0;
-  --text-muted: #7a7a8c;
+  --text: #ffffff;
+  --text-muted: #8899bb;
   --radius: 12px;
 }
 
@@ -52,7 +52,7 @@ html, body, #root {
   min-height: 100vh;
   padding: 2rem 1.5rem;
   gap: 2rem;
-  background: radial-gradient(ellipse at 50% 20%, #1e1a00 0%, var(--bg) 60%);
+  background: radial-gradient(ellipse at 50% 20%, #0d2250 0%, var(--bg) 60%);
 }
 
 .home-header {
@@ -75,7 +75,7 @@ html, body, #root {
   font-size: 3.5rem;
   letter-spacing: 0.1em;
   color: var(--accent);
-  text-shadow: 0 0 40px rgba(232, 200, 64, 0.4);
+  text-shadow: 0 0 40px rgba(230, 65, 0, 0.45);
   line-height: 1;
 }
 
@@ -155,10 +155,10 @@ html, body, #root {
   letter-spacing: 0.1em;
   cursor: pointer;
   transition: transform 0.1s, box-shadow 0.1s;
-  box-shadow: 0 4px 20px rgba(232, 200, 64, 0.25);
+  box-shadow: 0 4px 20px rgba(230, 65, 0, 0.3);
 }
 
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(232, 200, 64, 0.35); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(230, 65, 0, 0.45); }
 .btn-primary:active { transform: translateY(1px); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
@@ -211,7 +211,7 @@ html, body, #root {
 
 .toggle-btn:hover { border-color: var(--accent); color: var(--text); }
 .toggle-btn.active {
-  background: rgba(232, 200, 64, 0.15);
+  background: rgba(230, 65, 0, 0.15);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 700;
@@ -312,7 +312,7 @@ html, body, #root {
   transition: all 0.1s;
 }
 
-.dart-btn.active { background: rgba(232,200,64,0.2); border-color: var(--accent); color: var(--accent); }
+.dart-btn.active { background: rgba(230,65,0,0.2); border-color: var(--accent); color: var(--accent); }
 
 /* ── Scoreboard ── */
 .scoreboard {
@@ -337,8 +337,8 @@ html, body, #root {
 }
 
 .player-score.active-player {
-  background: rgba(232,200,64,0.08);
-  border: 1px solid rgba(232,200,64,0.3);
+  background: rgba(230,65,0,0.1);
+  border: 1px solid rgba(230,65,0,0.35);
 }
 
 .player-name { font-size: 0.75rem; color: var(--text-muted); text-align: center; font-weight: 500; }
@@ -358,8 +358,8 @@ html, body, #root {
 
 /* ── Turn indicator ── */
 .turn-indicator {
-  background: rgba(232,200,64,0.08);
-  border: 1px solid rgba(232,200,64,0.2);
+  background: rgba(230,65,0,0.08);
+  border: 1px solid rgba(230,65,0,0.25);
   border-radius: var(--radius);
   padding: 0.75rem 1rem;
   text-align: center;
@@ -402,7 +402,7 @@ html, body, #root {
   font-family: 'DM Sans', sans-serif;
 }
 
-.mark-btn.active { background: rgba(232,200,64,0.2); border-color: var(--accent); color: var(--accent); }
+.mark-btn.active { background: rgba(230,65,0,0.2); border-color: var(--accent); color: var(--accent); }
 .cricket-status { text-align: right; }
 .my-marks { font-size: 0.8rem; color: var(--text-muted); }
 
@@ -433,7 +433,7 @@ html, body, #root {
   transition: border-color 0.1s;
 }
 
-.table-row.top-row { border-color: var(--accent); background: rgba(232,200,64,0.05); }
+.table-row.top-row { border-color: var(--accent); background: rgba(230,65,0,0.07); }
 .rank { color: var(--text-muted); font-size: 0.85rem; }
 .player-cell { font-weight: 600; }
 .stat-cell { text-align: right; color: var(--text-muted); }
@@ -491,7 +491,7 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: radial-gradient(ellipse at 50% 50%, #1a1500 0%, var(--bg) 70%);
+  background: radial-gradient(ellipse at 50% 50%, #1a2e5a 0%, var(--bg) 70%);
 }
 
 .winner-content { display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center; padding: 2rem; }
@@ -582,7 +582,7 @@ html, body, #root {
 .leg-pip.active {
   opacity: 1;
   border-color: var(--accent);
-  background: rgba(232, 200, 64, 0.08);
+  background: rgba(230, 65, 0, 0.1);
 }
 
 .pip-num {
@@ -755,7 +755,7 @@ html, body, #root {
 }
 
 .status-badge.completed { background: rgba(61,220,132,0.1); color: var(--green); }
-.status-badge.in_progress { background: rgba(232,200,64,0.1); color: var(--accent); }
+.status-badge.in_progress { background: rgba(230,65,0,0.12); color: var(--accent); }
 
 .btn-delete {
   background: none;
@@ -817,10 +817,10 @@ html, body, #root {
   transition: border-color 0.15s;
 }
 
-.dart-slot.filled { border-color: var(--accent); background: rgba(232,200,64,0.06); }
+.dart-slot.filled { border-color: var(--accent); background: rgba(230,65,0,0.08); }
 .dart-slot.current { border-color: var(--accent); border-style: dashed; }
 .dart-slot.total-slot { border-color: var(--border); background: var(--surface2); }
-.dart-slot.busting { border-color: var(--accent2); background: rgba(255,77,77,0.06); }
+.dart-slot.busting { border-color: var(--accent2); background: rgba(224,48,48,0.08); }
 
 .dart-slot-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .dart-slot-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--accent); line-height: 1; }
@@ -853,7 +853,7 @@ html, body, #root {
 .modifier-btn:hover { border-color: var(--accent); color: var(--text); }
 .modifier-btn.active {
   border-color: var(--accent);
-  background: rgba(232,200,64,0.15);
+  background: rgba(230,65,0,0.15);
   color: var(--accent);
 }
 
@@ -884,8 +884,8 @@ html, body, #root {
 
 .bull-btn {
   grid-column: span 2;
-  background: rgba(232,200,64,0.08);
-  border-color: rgba(232,200,64,0.3);
+  background: rgba(230,65,0,0.1);
+  border-color: rgba(230,65,0,0.35);
   color: var(--accent);
 }
 
@@ -921,7 +921,7 @@ html, body, #root {
 .cricket-num-btn:active { transform: scale(0.95); }
 .cricket-num-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .cricket-num-btn.closed { border-color: var(--green); background: rgba(61,220,132,0.06); }
-.cricket-num-btn.scoring { border-color: var(--accent); background: rgba(232,200,64,0.08); }
+.cricket-num-btn.scoring { border-color: var(--accent); background: rgba(230,65,0,0.1); }
 
 .cnum { font-size: 1.1rem; font-weight: 700; }
 .cmarks { font-size: 0.75rem; color: var(--accent); min-height: 1rem; }
@@ -1013,9 +1013,9 @@ html, body, #root {
 .modifier-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .modifier-btn.single.active { background: rgba(240,240,240,0.1); border-color: #aaa; color: #eee; }
 .modifier-btn.double.active { background: rgba(61,220,132,0.15); border-color: var(--green); color: var(--green); }
-.modifier-btn.triple.active { background: rgba(232,200,64,0.15); border-color: var(--accent); color: var(--accent); }
+.modifier-btn.triple.active { background: rgba(230,65,0,0.15); border-color: var(--accent); color: var(--accent); }
 .modifier-btn.miss        { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; }
-.modifier-btn.miss.active { background: rgba(255,77,77,0.15); border-color: var(--accent2); color: var(--accent2); }
+.modifier-btn.miss.active { background: rgba(224,48,48,0.15); border-color: var(--accent2); color: var(--accent2); }
 
 .number-grid {
   display: grid;
@@ -1102,12 +1102,12 @@ html, body, #root {
 
 @keyframes pulse-border {
   0%, 100% { border-color: var(--accent); }
-  50% { border-color: rgba(232,200,64,0.3); }
+  50% { border-color: rgba(230,65,0,0.3); }
 }
 
 .dart-slot.filled        { border-style: solid; border-color: var(--border); color: var(--text); }
 .dart-slot.filled.double { border-color: var(--green); color: var(--green); background: rgba(61,220,132,0.05); }
-.dart-slot.filled.triple { border-color: var(--accent); color: var(--accent); background: rgba(232,200,64,0.05); }
+.dart-slot.filled.triple { border-color: var(--accent); color: var(--accent); background: rgba(230,65,0,0.07); }
 .dart-slot.miss          { border-style: solid; color: #555; }
 
 /* ── 501 scoreboard update ── */
@@ -1156,7 +1156,7 @@ html, body, #root {
   padding: 0.4rem 0.75rem;
   align-items: center;
   border-bottom: 1px solid var(--border);
-  background: rgba(232,200,64,0.03);
+  background: rgba(230,65,0,0.05);
 }
 
 .cricket-pts {
@@ -1234,7 +1234,7 @@ html, body, #root {
 .mode-btn.active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(232,200,64,0.08);
+  background: rgba(230,65,0,0.1);
 }
 
 .mode-btn:hover:not(.active) {
@@ -1264,7 +1264,7 @@ html, body, #root {
 
 .checkout-next {
   font-size: 1.2rem;
-  color: #ffd60a;
+  color: var(--accent);
 }
 
 .checkout-remain {
@@ -1323,8 +1323,8 @@ html, body, #root {
 }
 
 .btn-resume {
-  background: rgba(232,200,64,0.1);
-  border: 1px solid rgba(232,200,64,0.4);
+  background: rgba(230,65,0,0.1);
+  border: 1px solid rgba(230,65,0,0.4);
   color: var(--accent);
   font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;
@@ -1337,7 +1337,7 @@ html, body, #root {
 }
 
 .btn-resume:hover {
-  background: rgba(232,200,64,0.2);
+  background: rgba(230,65,0,0.2);
   border-color: var(--accent);
 }
 
@@ -1369,7 +1369,7 @@ html, body, #root {
 .season-step.active {
   opacity: 1;
   border-color: var(--accent);
-  background: rgba(232,200,64,0.06);
+  background: rgba(230,65,0,0.08);
 }
 
 .season-step.done {
@@ -1414,7 +1414,7 @@ html, body, #root {
 
 .player-select-btn.selected {
   border-color: var(--accent);
-  background: rgba(232,200,64,0.08);
+  background: rgba(230,65,0,0.1);
   color: var(--accent);
 }
 
@@ -1439,7 +1439,7 @@ html, body, #root {
 
 .weeks-btn.selected {
   border-color: var(--accent);
-  background: rgba(232,200,64,0.1);
+  background: rgba(230,65,0,0.12);
   color: var(--accent);
 }
 
@@ -1543,7 +1543,7 @@ html, body, #root {
 }
 
 .standings-leader {
-  background: rgba(232,200,64,0.05);
+  background: rgba(230,65,0,0.07);
 }
 
 .standings-name { font-weight: 600; }
@@ -1623,8 +1623,8 @@ html, body, #root {
 }
 
 .btn-play {
-  background: rgba(232,200,64,0.1);
-  border: 1px solid rgba(232,200,64,0.4);
+  background: rgba(230,65,0,0.1);
+  border: 1px solid rgba(230,65,0,0.4);
   color: var(--accent);
   font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;
@@ -1637,7 +1637,7 @@ html, body, #root {
 }
 
 .btn-play:hover {
-  background: rgba(232,200,64,0.2);
+  background: rgba(230,65,0,0.2);
   border-color: var(--accent);
 }
 
@@ -1674,7 +1674,7 @@ html, body, #root {
 }
 
 .preview-more-btn:hover {
-  background: rgba(232,200,64,0.06);
+  background: rgba(230,65,0,0.08);
   border-color: var(--accent);
 }
 
@@ -1746,7 +1746,7 @@ html, body, #root {
 .spinner-ring {
   width: 52px;
   height: 52px;
-  border: 4px solid rgba(232, 200, 64, 0.2);
+  border: 4px solid rgba(230, 65, 0, 0.2);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Trophy, Crown } from "lucide-react";
 
 export default function Leaderboard({ supabase, navigate }) {
   const [tab, setTab] = useState("501");
@@ -26,7 +27,7 @@ export default function Leaderboard({ supabase, navigate }) {
     <div className="screen">
       <div className="screen-header">
         <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
-        <h2>🏆 Leaderboard</h2>
+        <h2><Trophy size={18} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Leaderboard</h2>
       </div>
 
       <div className="button-group tabs">
@@ -50,7 +51,7 @@ export default function Leaderboard({ supabase, navigate }) {
           </div>
           {rows.filter(r => r.matches_played > 0).map((r, i) => (
             <div key={r.player_id} className={`table-row ${i === 0 ? "top-row" : ""}`}>
-              <span className="rank">{i === 0 ? "👑" : i + 1}</span>
+              <span className="rank">{i === 0 ? <Crown size={14} strokeWidth={2} color="#e64100" /> : i + 1}</span>
               <span className="player-cell">{r.name}</span>
               <span className="stat-cell green">{r.matches_won}</span>
               <span className="stat-cell red">{r.matches_played - r.matches_won}</span>

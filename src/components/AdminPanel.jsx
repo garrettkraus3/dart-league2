@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import SeasonManager from "./SeasonManager";
+import { Lock, Settings, Trophy, Trash2 } from "lucide-react";
 
 const ADMIN_PASSWORD = "dartsarelife";
 
@@ -142,7 +143,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
       <div className="screen">
         <div className="screen-header">
           <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
-          <h2>🔒 Admin</h2>
+          <h2><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin</h2>
         </div>
         <div className="admin-login">
           <p className="admin-login-sub">Enter the admin password to continue.</p>
@@ -169,7 +170,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
     <div className="screen">
       <div className="screen-header">
         <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
-        <h2>⚙️ Admin</h2>
+        <h2><Settings size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin</h2>
       </div>
 
       <div className="button-group tabs">
@@ -180,7 +181,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
           Players
         </button>
         <button className={`toggle-btn ${tab === "seasons" ? "active" : ""}`} onClick={() => setTab("seasons")}>
-          🏆 Seasons
+          <Trophy size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />Seasons
         </button>
       </div>
 
@@ -232,7 +233,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
                     </button>
                   )}
                   <button className="btn-delete" onClick={() => setConfirmDelete(m)}>
-                    🗑
+                    <Trash2 size={15} strokeWidth={2} />
                   </button>
                 </div>
               </div>
@@ -265,7 +266,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
                 <div className="admin-match-players">{p.name}</div>
               </div>
               <button className="btn-delete" onClick={() => setConfirmDeletePlayer(p)}>
-                🗑
+                <Trash2 size={15} strokeWidth={2} />
               </button>
             </div>
           ))}

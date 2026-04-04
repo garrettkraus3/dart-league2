@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Zap } from "lucide-react";
 
 // Fixed leg format: 501, 501, Cricket, Cricket, Choice
 export const LEG_FORMAT = ["501", "501", "cricket", "cricket", "choice"];
@@ -81,7 +82,7 @@ export default function NewMatch({ players, supabase, navigate }) {
       {error && <div className="error-msg">{error}</div>}
 
       <button className="btn-primary big-btn" onClick={startMatch} disabled={loading}>
-        {loading ? "Starting..." : "START MATCH ⚡"}
+        {loading ? "Starting..." : <><Zap size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.35rem"}} />START MATCH</>}
       </button>
     </div>
   );

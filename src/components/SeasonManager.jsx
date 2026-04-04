@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Lock, Trophy, Trash2, Calendar, Zap, Flag } from "lucide-react";
 
 const ADMIN_PASSWORD = "dartsarelife";
 
@@ -382,7 +383,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   const AuthModal = () => (
     <div className="abandon-overlay">
       <div className="abandon-card">
-        <h3>🔒 Admin Required</h3>
+        <h3><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin Required</h3>
         <input
           className="score-input" type="password" placeholder="Admin password"
           value={authInput} onChange={e => setAuthInput(e.target.value)}
@@ -403,7 +404,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
         {!embedded && (
           <div className="screen-header">
             <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
-            <h2>🏆 Seasons</h2>
+            <h2><Trophy size={18} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Seasons</h2>
           </div>
         )}
         <button className="btn-primary big-btn" onClick={() => requireAdmin("create")}>+ New Season</button>
@@ -417,7 +418,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
             </div>
             <div className="admin-match-actions">
               <span className={`status-badge ${s.status}`}>{s.status === "active" ? "Active" : "Completed"}</span>
-              <button className="btn-delete season-delete-btn" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}>🗑</button>
+              <button className="btn-delete season-delete-btn" onClick={e => { e.stopPropagation(); requireAdmin("delete", s); }}><Trash2 size={15} strokeWidth={2} /></button>
             </div>
           </div>
         ))}
@@ -480,13 +481,13 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                 className={`weeks-btn${!isRoundRobin ? " selected" : ""}`}
                 style={{ flex: 1, padding: "0.85rem 0.5rem" }}
                 onClick={() => setIsRoundRobin(false)}>
-                📅 Multi-Week
+                <Calendar size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.35rem"}} />Multi-Week
               </button>
               <button
                 className={`weeks-btn${isRoundRobin ? " selected" : ""}`}
                 style={{ flex: 1, padding: "0.85rem 0.5rem" }}
                 onClick={() => setIsRoundRobin(true)}>
-                ⚡ Round Robin
+                <Zap size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.35rem"}} />Round Robin
               </button>
             </div>
             {isRoundRobin && (
@@ -593,7 +594,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
               <button className="btn-secondary big-btn" onClick={() => setStep(isRoundRobin ? 2 : 3)}>← Back</button>
               <button className="btn-primary big-btn" onClick={createSeason} disabled={creating}>
-                {creating ? "Creating..." : "🏆 Create Season"}
+                {creating ? "Creating..." : <><Trophy size={15} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.35rem"}} />Create Season</>}
               </button>
             </div>
           </div>
@@ -622,7 +623,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
         {forfeitMatch && (
           <div className="abandon-overlay">
             <div className="abandon-card">
-              <h3>🏳 Forfeit Match</h3>
+              <h3><Flag size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Forfeit Match</h3>
               <p>Who is forfeiting?</p>
               <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 <button className="btn-danger" style={{ flex: 1 }}
@@ -651,12 +652,12 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
           <button className="back-btn" onClick={() => { setView("list"); loadSeasons(); }}>← Back</button>
           <h2>{detailSeason.name}</h2>
           <button className="btn-delete season-delete-btn" style={{ marginLeft: "auto" }}
-            onClick={() => requireAdmin("delete", detailSeason)}>🗑</button>
+            onClick={() => requireAdmin("delete", detailSeason)}><Trash2 size={15} strokeWidth={2} /></button>
         </div>
 
         {isRR && (
           <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
-            <span className="status-badge active">⚡ Round Robin</span>
+            <span className="status-badge active"><Zap size={11} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.25rem"}} />Round Robin</span>
           </div>
         )}
 
@@ -708,7 +709,7 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                         </button>
                       )}
                       {!done && (
-                        <button className="btn-forfeit" onClick={() => openForfeit(m)} title="Forfeit">🏳</button>
+                        <button className="btn-forfeit" onClick={() => openForfeit(m)} title="Forfeit"><Flag size={14} strokeWidth={2} /></button>
                       )}
                     </div>
                   </div>

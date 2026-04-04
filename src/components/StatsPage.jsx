@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, Legend, RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from "recharts";
+import { Target, Trophy, TrendingUp, Download } from "lucide-react";
 
 // ─── Colour tokens (mirrors CSS vars) ───────────────────────────────────────
 const C = {
@@ -225,7 +226,7 @@ function PlayerTab({ supabase, players }) {
 
       {!selectedPlayer && !loading && (
         <div className="sp-empty">
-          <div className="sp-empty-icon">🎯</div>
+          <div className="sp-empty-icon"><Target size={48} strokeWidth={1} color="#8899bb" /></div>
           <p>Select a player to view their stats</p>
         </div>
       )}
@@ -401,7 +402,7 @@ function SeasonTab({ supabase, players }) {
 
       {!selectedSeason && !loading && (
         <div className="sp-empty">
-          <div className="sp-empty-icon">🏆</div>
+          <div className="sp-empty-icon"><Trophy size={48} strokeWidth={1} color="#8899bb" /></div>
           <p>Select a season to compare players</p>
         </div>
       )}
@@ -577,7 +578,7 @@ function SeasonCompareTab({ supabase, players }) {
 
       {!loading && seasons.length < 2 && (
         <div className="sp-empty">
-          <div className="sp-empty-icon">📈</div>
+          <div className="sp-empty-icon"><TrendingUp size={48} strokeWidth={1} color="#8899bb" /></div>
           <p>You need at least 2 seasons of data for season comparison.</p>
         </div>
       )}
@@ -676,9 +677,9 @@ function SeasonCompareTab({ supabase, players }) {
 // MAIN StatsPage
 // ════════════════════════════════════════════════════════════════════════════
 const TABS = [
-  { id: "player",  label: "🎯 Player" },
-  { id: "season",  label: "🏆 Season" },
-  { id: "compare", label: "📈 Seasons" },
+  { id: "player",  label: "Player",  Icon: Target },
+  { id: "season",  label: "Season",  Icon: Trophy },
+  { id: "compare", label: "Seasons", Icon: TrendingUp },
 ];
 
 export default function StatsPage({ supabase, players, navigate }) {
@@ -712,10 +713,12 @@ export default function StatsPage({ supabase, players, navigate }) {
       <div className="sp-header">
         <button className="back-btn sp-back" onClick={()=>navigate("home")}>← Back</button>
         <div className="sp-header-center">
-          <span className="sp-header-icon">🎯</span>
+          <span className="sp-header-icon"><Target size={22} strokeWidth={1.5} color="#e64100" /></span>
           <h2 className="sp-header-title">STATISTICS</h2>
         </div>
-        <button className="sp-export-btn" onClick={exportCSV} title="Export CSV">⬇</button>
+        <button className="sp-export-btn" onClick={exportCSV} title="Export CSV">
+          <Download size={16} strokeWidth={2} />
+        </button>
       </div>
 
       {/* Tab bar */}
@@ -726,6 +729,7 @@ export default function StatsPage({ supabase, players, navigate }) {
             className={`sp-tab ${activeTab===t.id?"active":""}`}
             onClick={()=>setActiveTab(t.id)}
           >
+            <t.Icon size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />
             {t.label}
           </button>
         ))}

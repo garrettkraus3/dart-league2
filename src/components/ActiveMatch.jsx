@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Target, Trophy, Trash2, Grid, List } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CRICKET_NUMBERS = [20, 19, 18, 17, 16, 15, "Bull"];
@@ -850,8 +851,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
             <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
           </div>
           <p className="leg5-sub">What are you playing?</p>
-          <button className="btn-primary big-btn" onClick={() => chooseGame("501")}>🎯 501</button>
-          <button className="btn-secondary big-btn" onClick={() => chooseGame("cricket")}>🏏 Cricket</button>
+          <button className="btn-primary big-btn" onClick={() => chooseGame("501")}>501</button>
+          <button className="btn-secondary big-btn" onClick={() => chooseGame("cricket")}>Cricket</button>
         </div>
       </div>
     );
@@ -870,8 +871,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
             <span>{p1?.name}: {legScores[match.match.player1_id]}</span>
             <span>{p2?.name}: {legScores[match.match.player2_id]}</span>
           </div>
-          <button className="btn-primary big-btn" onClick={() => chooseFirstThrow(match.match.player1_id)}>🎯 {p1?.name}</button>
-          <button className="btn-secondary big-btn" onClick={() => chooseFirstThrow(match.match.player2_id)}>🎯 {p2?.name}</button>
+          <button className="btn-primary big-btn" onClick={() => chooseFirstThrow(match.match.player1_id)}>{p1?.name}</button>
+          <button className="btn-secondary big-btn" onClick={() => chooseFirstThrow(match.match.player2_id)}>{p2?.name}</button>
         </div>
       </div>
     );
@@ -882,7 +883,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     return (
       <div className="screen winner-screen">
         <div className="winner-content">
-          <div className="winner-trophy">🏆</div>
+          <div className="winner-trophy"><Trophy size={72} strokeWidth={1.2} color="#e64100" /></div>
           <h1 className="winner-name">{winner?.name || "Tie!"}</h1>
           <p className="winner-sub">{winner ? "WINS THE MATCH!" : "MATCH TIED"}</p>
           <div className="final-score">{legScores[match.match.player1_id]} — {legScores[match.match.player2_id]}</div>
@@ -1026,10 +1027,10 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
             <h3>Leave Match?</h3>
             <p>What would you like to do?</p>
             <button className="btn-secondary big-btn" onClick={() => { setConfirmAbandon(false); navigate("home"); }}>
-              💾 Save &amp; Resume Later
+              Save &amp; Resume Later
             </button>
             <button className="btn-danger big-btn" onClick={abandonMatch} disabled={loading}>
-              {loading ? "Deleting..." : "🗑 Delete Match"}
+              {loading ? "Deleting..." : <><Trash2 size={15} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.35rem"}} />Delete Match</>}
             </button>
             <button className="btn-secondary big-btn" onClick={() => setConfirmAbandon(false)}>Cancel</button>
           </div>
@@ -1050,7 +1051,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
           : null;
         return remainingPath ? (
           <div className="checkout-hint">
-            🎯 <span className="checkout-next">{remainingPath}</span>
+            <Target size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} /><span className="checkout-next">{remainingPath}</span>
             <span className="checkout-remain"> — {liveRemain} left</span>
           </div>
         ) : bustMessage ? (
@@ -1065,13 +1066,13 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
           className={`mode-btn ${inputMode === "list" ? "active" : ""}`}
           onClick={() => setInputMode("list")}
         >
-          📋 List
+          <List size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />List
         </button>
         <button
           className={`mode-btn ${inputMode === "board" ? "active" : ""}`}
           onClick={() => setInputMode("board")}
         >
-          🎯 Board
+          <Grid size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />Board
         </button>
         <button
           className={`mode-btn undo-btn ${darts.length === 0 && history.length === 0 ? "disabled-btn" : ""}`}

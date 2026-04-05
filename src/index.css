@@ -34,12 +34,14 @@ html, body, #root {
 /* ── Desktop overrides ── */
 @media (min-width: 1024px) {
   html, body, #root {
-    overflow: hidden;
-    height: 100vh;
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
     max-width: 100%;
   }
   .app {
     max-width: 100%;
+    min-height: 100vh;
   }
 }
 
@@ -95,6 +97,20 @@ html, body, #root {
   max-width: 320px;
 }
 
+@media (min-width: 1024px) {
+  .home-buttons {
+    max-width: 480px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+
+  /* Make the first button (Start Match) span full width as CTA */
+  .home-buttons .btn-primary:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ── Version Stamp ── */
 .version-stamp {
   position: fixed;
@@ -115,6 +131,16 @@ html, body, #root {
   flex-direction: column;
   gap: 1.25rem;
   min-height: 100vh;
+}
+
+@media (min-width: 1024px) {
+  .screen {
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1.5rem 2rem 4rem;
+    min-height: auto;
+  }
 }
 
 .screen-header {
@@ -450,8 +476,8 @@ html, body, #root {
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: visible;
 }
 
 /* Header */
@@ -543,11 +569,22 @@ html, body, #root {
   border-radius: 2px 2px 0 0;
 }
 
-/* Scrollable panel area */
+/* Scrollable panel area — on mobile scrolls naturally with page */
 .sp-panels {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: visible;
   overscroll-behavior: contain;
+}
+
+@media (min-width: 1024px) {
+  .sp-page {
+    height: auto;
+    min-height: 100vh;
+  }
+  .sp-panels {
+    overflow-y: visible;
+    flex: none;
+  }
 }
 
 /* Tab content inner */
@@ -838,7 +875,7 @@ html, body, #root {
 
 /* Desktop layout — wider */
 @media (min-width: 1024px) {
-  .sp-tab-content { max-width: 900px; margin: 0 auto; width: 100%; padding: 1.25rem 1.5rem 5rem; }
+  .sp-tab-content { max-width: 100%; margin: 0; width: 100%; padding: 1.25rem 0 5rem; }
   .sp-tiles { grid-template-columns: repeat(5, 1fr); }
   .sp-controls { flex-direction: row; }
   .sp-select { flex: 1; }
@@ -1656,6 +1693,60 @@ html, body, #root {
 .screen.active-match {
   gap: 0.4rem;
   padding: 0.5rem 0.75rem 1rem;
+}
+
+/* Mobile: wrapper is just a flex column — no visual change */
+.active-match-desktop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Mobile: left/right cols are transparent on mobile — everything flows naturally */
+.active-match-left,
+.active-match-right {
+  display: contents;
+}
+
+/* ── Active Match Desktop Two-Column Layout ── */
+@media (min-width: 1024px) {
+  .screen.active-match {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 0.75rem 1.5rem 1.5rem;
+    min-height: 100vh;
+    gap: 0.5rem;
+  }
+
+  /* Two-column grid: left panel (scoreboard + controls) | right panel (board) */
+  .active-match-desktop {
+    display: grid;
+    grid-template-columns: 1fr 440px;
+    gap: 1.25rem;
+    align-items: start;
+    flex-direction: unset;
+  }
+
+  .active-match-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .active-match-right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: sticky;
+    top: 0.75rem;
+  }
+
+  /* Board mode: cap the board svg so it fits viewport height */
+  .dart-input-panel.board-mode svg {
+    max-height: calc(100vh - 260px);
+    max-width: 100%;
+  }
 }
 
 /* ── Undo button ── */

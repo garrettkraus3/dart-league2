@@ -1039,58 +1039,73 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
       <LegProgress />
 
-      {isXO1 ? <XO1Scoreboard /> : <CricketScoreboard />}
+      <div className="active-match-desktop">
+        {/* ── Left column: scoreboard + status + abandon ── */}
+        <div className="active-match-left">
+          {isXO1 ? <XO1Scoreboard /> : <CricketScoreboard />}
 
-      {isXO1 && (() => {
-        const myScore    = xo1Scores[currentPlayerId];
-        const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
-        // Look up checkout for the *current* remaining score — this already accounts
-        // for darts thrown this turn, so always show the full path from here
-        const remainingPath = !turnBust && canCheckout(liveRemain) && liveRemain > 1
-          ? CHECKOUTS[liveRemain]
-          : null;
-        return remainingPath ? (
-          <div className="checkout-hint">
-            <Target size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} /><span className="checkout-next">{remainingPath}</span>
-            <span className="checkout-remain"> — {liveRemain} left</span>
+          {isXO1 && (() => {
+            const myScore    = xo1Scores[currentPlayerId];
+            const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
+            const remainingPath = !turnBust && canCheckout(liveRemain) && liveRemain > 1
+              ? CHECKOUTS[liveRemain]
+              : null;
+            return remainingPath ? (
+              <div className="checkout-hint">
+                <Target size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} /><span className="checkout-next">{remainingPath}</span>
+                <span className="checkout-remain"> — {liveRemain} left</span>
+              </div>
+            ) : bustMessage ? (
+              <div className="checkout-hint bust-hint">{bustMessage}</div>
+            ) : null;
+          })()}
+
+          <DartStrip />
+
+          <div className="input-mode-toggle">
+            <button
+              className={`mode-btn ${inputMode === "list" ? "active" : ""}`}
+              onClick={() => setInputMode("list")}
+            >
+              <List size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />List
+            </button>
+            <button
+              className={`mode-btn ${inputMode === "board" ? "active" : ""}`}
+              onClick={() => setInputMode("board")}
+            >
+              <Grid size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />Board
+            </button>
+            <button
+              className={`mode-btn undo-btn ${darts.length === 0 && history.length === 0 ? "disabled-btn" : ""}`}
+              onClick={handleUndo}
+              disabled={loading || (darts.length === 0 && history.length === 0)}
+            >
+              ↩ Undo
+            </button>
           </div>
-        ) : bustMessage ? (
-          <div className="checkout-hint bust-hint">{bustMessage}</div>
-        ) : null;
-      })()}
 
-      <DartStrip />
+          {/* List mode input renders in left column */}
+          {inputMode === "list" && (
+            isXO1
+              ? <DartInput onSelect={handleDart501} disabled={loading || turnBust || turnWin || darts.length >= 3} inputMode={inputMode} />
+              : <CricketDartInput onSelect={handleDartCricket} disabled={loading || turnWin || darts.length >= 3} inputMode={inputMode} />
+          )}
 
-      <div className="input-mode-toggle">
-        <button
-          className={`mode-btn ${inputMode === "list" ? "active" : ""}`}
-          onClick={() => setInputMode("list")}
-        >
-          <List size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />List
-        </button>
-        <button
-          className={`mode-btn ${inputMode === "board" ? "active" : ""}`}
-          onClick={() => setInputMode("board")}
-        >
-          <Grid size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />Board
-        </button>
-        <button
-          className={`mode-btn undo-btn ${darts.length === 0 && history.length === 0 ? "disabled-btn" : ""}`}
-          onClick={handleUndo}
-          disabled={loading || (darts.length === 0 && history.length === 0)}
-        >
-          ↩ Undo
-        </button>
+          <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>
+            Leave Match
+          </button>
+        </div>
+
+        {/* ── Right column: board input (only in board mode) ── */}
+        {inputMode === "board" && (
+          <div className="active-match-right">
+            {isXO1
+              ? <DartInput onSelect={handleDart501} disabled={loading || turnBust || turnWin || darts.length >= 3} inputMode={inputMode} />
+              : <CricketDartInput onSelect={handleDartCricket} disabled={loading || turnWin || darts.length >= 3} inputMode={inputMode} />
+            }
+          </div>
+        )}
       </div>
-
-      {isXO1
-        ? <DartInput onSelect={handleDart501} disabled={loading || turnBust || turnWin || darts.length >= 3} inputMode={inputMode} />
-        : <CricketDartInput onSelect={handleDartCricket} disabled={loading || turnWin || darts.length >= 3} inputMode={inputMode} />
-      }
-
-      <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>
-        Leave Match
-      </button>
     </div>
   );
 }

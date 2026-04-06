@@ -478,13 +478,16 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setAwaitingGameChoice(snap.awaitingGameChoice);
   };
 
-  // ── Sync from DB: load all turns for the current leg and derive state ──────
-  // This is called on mount AND by the Realtime subscription.
-  // We use a ref to always have the latest currentLeg inside the subscription callback.
-  const currentLegRef = useRef(currentLeg);
+  // ── Refs so RT callbacks always see latest state without stale closures ──────
+  const currentLegRef  = useRef(currentLeg);
+  const matchIdRef     = useRef(matchData.id);
+  const submittingRef  = useRef(false); // true while THIS device is writing a turn
+
   useEffect(() => { currentLegRef.current = currentLeg; }, [currentLeg]);
 
-  const syncFromDB = useCallback(async (legOverride = null) => {
+  // syncFromDB is stored in a ref so the subscription callback (set up once)
+  // always calls the latest version — avoids stale closure entirely.
+  const syncFromDBImpl = async (legOverride = null) => {
     const leg = legOverride || currentLegRef.current;
     if (!leg?.id) return;
 
@@ -501,79 +504,78 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setCurrentPlayerIdx(derived.currentPlayerIdx);
     setTurnNumber(derived.turnNumber);
 
-    // Reset in-flight darts (a remote player completed the turn)
-    setDarts([]);
-    setTurnBust(false);
-    setTurnWin(false);
-    setBustMessage("");
+    // Only wipe in-flight darts if a REMOTE device submitted
+    // (submittingRef is true when we ourselves just wrote)
+    if (!submittingRef.current) {
+      setDarts([]);
+      setTurnBust(false);
+      setTurnWin(false);
+      setBustMessage("");
+    }
     setSyncing(false);
-  }, [matchData, supabase]);
+  };
+  const syncFromDBRef = useRef(syncFromDBImpl);
+  useEffect(() => { syncFromDBRef.current = syncFromDBImpl; });
+
+  const syncFromDB = (legOverride = null) => syncFromDBRef.current(legOverride);
 
   // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (initialLeg?.game_type && initialLeg?.first_player_id) {
-      // Leg already in progress — full rehydrate
       syncFromDB(initialLeg);
     } else if (initialLeg?.game_type && !initialLeg?.first_player_id) {
-      // Game chosen but nobody set first-thrower yet — show that screen
       setAwaitingFirstThrow(true);
     }
-    // else: brand new leg, awaiting game choice — nothing to load
   }, []);
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
+  // No row-level filters — receive all changes and filter in JS by match_id/leg_id.
+  // Row-level filters on postgres_changes require replica identity full and can
+  // silently fail; this approach is more reliable.
   useEffect(() => {
     const matchId = matchData.id;
 
-    // Watch turns table for this match — re-sync scores on any insert/delete
     const turnsChannel = supabase
       .channel(`match-turns-${matchId}`)
       .on("postgres_changes", {
         event: "*",
         schema: "public",
         table: "turns",
-        filter: `match_id=eq.${matchId}`,
-      }, () => {
-        // Only sync if we're not mid-turn (darts.length === 0 means between turns)
-        // We always sync — local darts will be cleared, which is fine since
-        // our own turn submission clears them before the RT event fires
-        syncFromDB();
+      }, (payload) => {
+        const row = payload.new || payload.old;
+        if (row?.match_id !== matchId) return; // ignore other matches
+        syncFromDBRef.current();
       })
       .subscribe();
 
-    // Watch legs table for this match — pick up new legs, game_type, first_player_id
     const legsChannel = supabase
       .channel(`match-legs-${matchId}`)
       .on("postgres_changes", {
         event: "*",
         schema: "public",
         table: "legs",
-        filter: `match_id=eq.${matchId}`,
       }, async (payload) => {
         const updatedLeg = payload.new;
-        if (!updatedLeg) return;
+        if (!updatedLeg || updatedLeg.match_id !== matchId) return;
 
-        // If this is the current leg getting updated
         if (updatedLeg.id === currentLegRef.current?.id) {
           setCurrentLeg(updatedLeg);
           currentLegRef.current = updatedLeg;
 
-          if (updatedLeg.status === "completed") return; // completeLeg handles transition
+          if (updatedLeg.status === "completed") return;
 
-          // Game type just got set
-          if (updatedLeg.game_type && !currentGameType) {
+          if (updatedLeg.game_type) {
             setCurrentGameType(updatedLeg.game_type);
             setLegGameTypes(prev => ({ ...prev, [updatedLeg.leg_number]: updatedLeg.game_type }));
             setAwaitingGameChoice(false);
           }
-          // First player just got set
-          if (updatedLeg.first_player_id && awaitingFirstThrow) {
-            const playerOrder = [matchData.player1_id, matchData.player2_id];
-            setCurrentPlayerIdx(playerOrder.indexOf(updatedLeg.first_player_id));
+          if (updatedLeg.first_player_id) {
+            const po = [matchData.player1_id, matchData.player2_id];
+            setCurrentPlayerIdx(po.indexOf(updatedLeg.first_player_id));
             setAwaitingFirstThrow(false);
           }
         } else {
-          // A new leg was created — we're transitioning
+          // New leg created by the other device
           const { data: legs } = await supabase
             .from("legs")
             .select("*")
@@ -581,6 +583,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
             .order("leg_number", { ascending: false });
           const newLeg = legs?.find(l => l.status === "in_progress") || legs?.[0];
           if (newLeg && newLeg.id !== currentLegRef.current?.id) {
+            currentLegRef.current = newLeg;
             setCurrentLeg(newLeg);
             setLegNumber(newLeg.leg_number);
             setCurrentGameType(newLeg.game_type || null);
@@ -595,17 +598,15 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       })
       .subscribe();
 
-    // Watch match row — pick up leg score updates and match completion
     const matchChannel = supabase
       .channel(`match-row-${matchId}`)
       .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
         table: "matches",
-        filter: `id=eq.${matchId}`,
       }, (payload) => {
         const updated = payload.new;
-        if (!updated) return;
+        if (!updated || updated.id !== matchId) return;
         setLegScores({
           [matchData.player1_id]: updated.player1_legs || 0,
           [matchData.player2_id]: updated.player2_legs || 0,
@@ -726,6 +727,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Submit 501 turn ────────────────────────────────────────────────────────
   const submitTurn501 = async (submittedDarts, bust, win, playerId) => {
     setLoading(true);
+    submittingRef.current = true;
     const scored = bust ? 0 : submittedDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
     const prevRemaining = xo1Scores[playerId];
     const newRemaining  = bust ? prevRemaining : prevRemaining - scored;
@@ -775,6 +777,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     } else {
       advanceTurn();
     }
+    submittingRef.current = false;
     setLoading(false);
   };
 
@@ -787,6 +790,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   const submitTurnCricket = async (submittedDarts, finalCricket, win, playerId) => {
     setLoading(true);
+    submittingRef.current = true;
     const d = submittedDarts;
     const turnPoints = finalCricket[playerId].points - cricketState[playerId].points;
 
@@ -832,6 +836,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     } else {
       advanceTurn();
     }
+    submittingRef.current = false;
     setLoading(false);
   };
 

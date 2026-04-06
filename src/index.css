@@ -34,8 +34,6 @@ html, body, #root {
 /* ── Desktop overrides ── */
 @media (min-width: 1024px) {
   html, body, #root {
-    overflow: hidden;
-    height: 100vh;
     overflow: auto;
     height: auto;
     min-height: 100vh;
@@ -478,8 +476,6 @@ html, body, #root {
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
   min-height: 100vh;
   overflow: visible;
 }
@@ -573,11 +569,9 @@ html, body, #root {
   border-radius: 2px 2px 0 0;
 }
 
-/* Scrollable panel area */
 /* Scrollable panel area — on mobile scrolls naturally with page */
 .sp-panels {
   flex: 1;
-  overflow-y: auto;
   overflow-y: visible;
   overscroll-behavior: contain;
 }
@@ -881,7 +875,6 @@ html, body, #root {
 
 /* Desktop layout — wider */
 @media (min-width: 1024px) {
-  .sp-tab-content { max-width: 900px; margin: 0 auto; width: 100%; padding: 1.25rem 1.5rem 5rem; }
   .sp-tab-content { max-width: 100%; margin: 0; width: 100%; padding: 1.25rem 0 5rem; }
   .sp-tiles { grid-template-columns: repeat(5, 1fr); }
   .sp-controls { flex-direction: row; }

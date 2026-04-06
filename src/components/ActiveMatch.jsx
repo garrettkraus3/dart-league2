@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Target, Trophy, Trash2, Grid, List, Radio } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Target, Trophy, Trash2, Grid, List } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CRICKET_NUMBERS = [20, 19, 18, 17, 16, 15, "Bull"];
@@ -8,6 +8,7 @@ const NUMBERS         = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,"Bul
 function dartValue(number, modifier) {
   if (number === null) return 0;
   if (number === "Miss") return 0;
+  // Both single bull and double bull = 50 in 501
   if (number === "Bull" || number === "DBull") return 50;
   const n = parseInt(number);
   if (isNaN(n)) return 0;
@@ -24,6 +25,7 @@ function isBust(remaining, darts) {
   if (newRemaining === 0) {
     const last = darts[darts.length - 1];
     if (!last) return false;
+    // Valid finish: any bull hit (single or double) OR a double
     const isBullFinish = last.number === "Bull" || last.number === "DBull";
     return !isBullFinish && last.modifier !== "double";
   }
@@ -35,6 +37,7 @@ function canCheckout(remaining) {
   return remaining <= 170 && !impossible.includes(remaining);
 }
 
+// Checkout suggestions keyed by remaining score
 const CHECKOUTS = {
   170:"T20 T20 Bull", 167:"T20 T19 Bull", 164:"T20 T18 Bull", 161:"T20 T17 Bull",
   160:"T20 T20 D20",  158:"T20 T20 D19",  157:"T20 T19 D20",  156:"T20 T20 D18",
@@ -72,7 +75,7 @@ function getCheckoutHint(remaining, dartsThrown) {
   return parts[dartsThrown] || null;
 }
 
-// ─── Dartboard ────────────────────────────────────────────────────────────────
+// ─── Dartboard (from custom design) ──────────────────────────────────────────
 const BOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 const CRICKET_SET   = new Set([15, 16, 17, 18, 19, 20]);
 
@@ -81,6 +84,7 @@ function polarToXY(angle, r, cx, cy) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
+// Translates a board tap {segment, position, value} → ActiveMatch dart {number, modifier}
 function boardDartToMatch(dart) {
   if (dart.position === "SBull") return { number: "Bull",  modifier: "single" };
   if (dart.position === "DBull") return { number: "DBull", modifier: "double" };
@@ -106,6 +110,7 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
 
   const handleTap = (dart) => {
     if (disabled) return;
+    // For numbered segments, check cricket filter
     if (dart.position !== "SBull" && dart.position !== "DBull") {
       const num = parseInt(dart.position);
       if (cricketOnly && !CRICKET_SET.has(num)) return;
@@ -122,6 +127,7 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
     const isEven     = i % 2 === 0;
     const inactive   = cricketOnly && !isCricket;
 
+    // In cricket-only mode, use consistent light/white colors for all active segments
     const singleColor  = inactive ? (isEven ? "#1a1a2e" : "#f5e6c8")
                        : cricketOnly ? "#e8e0d0"
                        : (isEven ? "#1a1a2e" : "#f5e6c8");
@@ -200,6 +206,7 @@ function DartBoard({ onScore, disabled, cricketOnly }) {
 
 // ─── Dart Input Component (501) ───────────────────────────────────────────────
 function DartInput({ onSelect, disabled, inputMode }) {
+  // Numbers in 20→1 order
   const numOrder = [20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1];
   const [modifier, setModifier] = useState("single");
 
@@ -211,6 +218,7 @@ function DartInput({ onSelect, disabled, inputMode }) {
     onSelect({ number: num, modifier });
   };
 
+  // Board mode: tapping a segment directly encodes segment type, no modifier row needed
   const handleBoardScore = (dart) => {
     const { number, modifier: mod } = boardDartToMatch(dart);
     onSelect({ number, modifier: mod });
@@ -249,11 +257,13 @@ function DartInput({ onSelect, disabled, inputMode }) {
             {n}
           </button>
         ))}
+        {/* Single bull always available (= 50) */}
         <button className="number-btn bull-btn"
           onClick={() => !disabled && modifier && onSelect({ number: "Bull", modifier: "single" })}
           disabled={disabled || !modifier}>
           Bull
         </button>
+        {/* Double bull always available (= 50) */}
         <button className="number-btn bull-btn"
           onClick={() => !disabled && modifier && onSelect({ number: "DBull", modifier: "double" })}
           disabled={disabled || !modifier}>
@@ -314,11 +324,13 @@ function CricketDartInput({ onSelect, disabled, inputMode }) {
             {num}
           </button>
         ))}
+        {/* Single bull = 1 mark */}
         <button className="cricket-num-btn"
           onClick={() => !disabled && modifier && onSelect({ number: "Bull", modifier: "single" })}
           disabled={disabled || !modifier}>
           Bull
         </button>
+        {/* Double bull = 2 marks */}
         <button className="cricket-num-btn"
           onClick={() => !disabled && modifier && onSelect({ number: "DBull", modifier: "double" })}
           disabled={disabled || !modifier}>
@@ -329,124 +341,72 @@ function CricketDartInput({ onSelect, disabled, inputMode }) {
   );
 }
 
-// ─── Derive full game state from DB turns + leg ───────────────────────────────
-// This is the single source of truth used by all connected devices.
-function deriveStateFromTurns(turns, leg, matchData) {
-  const p1id = matchData.player1_id;
-  const p2id = matchData.player2_id;
-  const gameType = leg?.game_type || null;
-
-  let xo1Scores = { [p1id]: 501, [p2id]: 501 };
-  let cricketState = {
-    [p1id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
-    [p2id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
-  };
-
-  if (!turns || turns.length === 0) {
-    // No turns yet — first player is whoever the leg says, or p1 by default
-    const firstPlayerIdx = leg?.first_player_id
-      ? [p1id, p2id].indexOf(leg.first_player_id)
-      : 0;
-    return {
-      xo1Scores,
-      cricketState,
-      currentPlayerIdx: firstPlayerIdx < 0 ? 0 : firstPlayerIdx,
-      turnNumber: 1,
-    };
-  }
-
-  if (gameType === "501") {
-    for (const t of turns) {
-      if (t.score_remaining !== null) xo1Scores[t.player_id] = t.score_remaining;
-    }
-  } else if (gameType === "cricket") {
-    // Points are deltas per turn; marks are cumulative (last turn per player)
-    for (const t of turns) {
-      const pid = t.player_id;
-      if (!cricketState[pid]) continue;
-      cricketState[pid].points += (t.cricket_points || 0);
-    }
-    const lastTurnByPlayer = {};
-    for (const t of turns) { lastTurnByPlayer[t.player_id] = t; }
-    for (const [pid, t] of Object.entries(lastTurnByPlayer)) {
-      if (!cricketState[pid]) continue;
-      cricketState[pid][20]     = t.cricket_20   || 0;
-      cricketState[pid][19]     = t.cricket_19   || 0;
-      cricketState[pid][18]     = t.cricket_18   || 0;
-      cricketState[pid][17]     = t.cricket_17   || 0;
-      cricketState[pid][16]     = t.cricket_16   || 0;
-      cricketState[pid][15]     = t.cricket_15   || 0;
-      cricketState[pid]["Bull"] = t.cricket_bull || 0;
-    }
-  }
-
-  const lastTurn = turns[turns.length - 1];
-  const lastPlayerIdx = [p1id, p2id].indexOf(lastTurn.player_id);
-  const nextPlayerIdx = 1 - lastPlayerIdx;
-  const turnNumber = lastTurn.turn_number + (nextPlayerIdx === 0 ? 1 : 0);
-
-  return { xo1Scores, cricketState, currentPlayerIdx: nextPlayerIdx, turnNumber };
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ActiveMatch({ match, players, supabase, navigate }) {
   const { currentLeg: initialLeg } = match;
-  const [matchData]           = useState(match.match);
-
-  // ── Core game state — all derived from DB ──────────────────────────────────
-  const [currentLeg, setCurrentLeg]             = useState(initialLeg);
-  const [legNumber, setLegNumber]               = useState(initialLeg?.leg_number || 1);
-  const [legScores, setLegScores]               = useState({
+  const [currentLeg, setCurrentLeg]     = useState(initialLeg);
+  const [matchData]                      = useState(match.match);
+  // Seed leg number and scores from DB (handles resume correctly)
+  const [legNumber, setLegNumber]        = useState(initialLeg?.leg_number || 1);
+  const [turnNumber, setTurnNumber]      = useState(1);
+  const [currentPlayerIdx, setCurrentPlayerIdx] = useState(null);
+  const [legScores, setLegScores]        = useState({
     [match.match.player1_id]: match.match.player1_legs || 0,
     [match.match.player2_id]: match.match.player2_legs || 0,
   });
-  const [currentGameType, setCurrentGameType]   = useState(initialLeg?.game_type || null);
-  const [legGameTypes, setLegGameTypes]         = useState({});
+  const [currentGameType, setCurrentGameType] = useState(initialLeg?.game_type || null);
+  const [legGameTypes, setLegGameTypes]       = useState({}); // legNumber → "501"|"cricket"
   const [awaitingGameChoice, setAwaitingGameChoice] = useState(!initialLeg?.game_type);
-  const [awaitingFirstThrow, setAwaitingFirstThrow] = useState(
-    !!initialLeg?.game_type && !initialLeg?.first_player_id
-  );
+  const [awaitingFirstThrow, setAwaitingFirstThrow] = useState(true);
+  const [rehydrating, setRehydrating]    = useState(false);
 
-  // ── Live scores (derived from DB on every sync) ────────────────────────────
-  const [xo1Scores, setXo1Scores]           = useState({
+  const isXO1 = currentGameType === "501";
+
+  // 501 state
+  const [xo1Scores, setXo1Scores] = useState({
     [match.match.player1_id]: 501,
     [match.match.player2_id]: 501,
   });
+
+  // Cricket state: marks per number, points
   const initCricket = () => ({
     [match.match.player1_id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
     [match.match.player2_id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
   });
-  const [cricketState, setCricketState]     = useState(initCricket());
-  const [currentPlayerIdx, setCurrentPlayerIdx] = useState(null);
-  const [turnNumber, setTurnNumber]         = useState(1);
+  const [cricketState, setCricketState] = useState(initCricket());
 
-  // ── Current turn (local only — in-flight darts not yet saved) ─────────────
+  // Current turn darts: array of up to 3 { number, modifier }
   const [darts, setDarts]           = useState([]);
   const [turnBust, setTurnBust]     = useState(false);
   const [turnWin, setTurnWin]       = useState(false);
-  const [bustMessage, setBustMessage] = useState("");
-
-  // ── UI state ───────────────────────────────────────────────────────────────
-  const [loading, setLoading]           = useState(false);
-  const [syncing, setSyncing]           = useState(false); // remote update incoming
-  const [matchOver, setMatchOver]       = useState(false);
-  const [winner, setWinner]             = useState(null);
+  const [loading, setLoading]       = useState(false);
+  const [matchOver, setMatchOver]   = useState(false);
+  const [winner, setWinner]         = useState(null);
   const [confirmAbandon, setConfirmAbandon] = useState(false);
-  const [inputMode, setInputMode]       = useState("list");
+  const [bustMessage, setBustMessage] = useState("");
+  const [inputMode, setInputMode]   = useState("list"); // "list" | "board"
 
-  // ── Undo history ───────────────────────────────────────────────────────────
+  // ── Undo history stack ────────────────────────────────────────────────────
+  // Snapshot taken BEFORE each dart is recorded — restores to that exact moment.
+  // turnIdToDelete is set only on the 3rd-dart snapshot (when a turn was committed to DB).
   const [history, setHistory] = useState([]);
 
   const captureSnapshot = (currentDarts, turnIdToDelete = null) => ({
     darts: currentDarts,
-    turnBust: false, turnWin: false, bustMessage: "",
-    turnNumber, currentPlayerIdx,
+    turnBust: false,
+    turnWin: false,
+    bustMessage: "",
+    turnNumber,
+    currentPlayerIdx,
     xo1Scores: { ...xo1Scores },
     cricketState: JSON.parse(JSON.stringify(cricketState)),
     legScores: { ...legScores },
-    legNumber, currentLeg, currentGameType,
+    legNumber,
+    currentLeg,
+    currentGameType,
     legGameTypes: { ...legGameTypes },
-    awaitingFirstThrow, awaitingGameChoice,
+    awaitingFirstThrow,
+    awaitingGameChoice,
     turnIdToDelete,
   });
 
@@ -454,6 +414,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     if (history.length === 0) return;
     const snap = history[history.length - 1];
     setHistory(prev => prev.slice(0, -1));
+
+    // If this snapshot has a DB turn to delete, remove it and fix match leg scores
     if (snap.turnIdToDelete) {
       await supabase.from("turns").delete().eq("id", snap.turnIdToDelete);
       await supabase.from("matches").update({
@@ -461,6 +423,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
         player2_legs: snap.legScores[match.match.player2_id],
       }).eq("id", matchData.id);
     }
+
+    // Restore full game state to the snapshot moment
     setDarts(snap.darts);
     setTurnBust(snap.turnBust);
     setTurnWin(snap.turnWin);
@@ -478,185 +442,105 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setAwaitingGameChoice(snap.awaitingGameChoice);
   };
 
-  // ── Refs so RT callbacks always see latest state without stale closures ──────
-  const currentLegRef  = useRef(currentLeg);
-  const matchIdRef     = useRef(matchData.id);
-  const submittingRef  = useRef(false); // true while THIS device is writing a turn
-
-  useEffect(() => { currentLegRef.current = currentLeg; }, [currentLeg]);
-
-  // syncFromDB is stored in a ref so the subscription callback (set up once)
-  // always calls the latest version — avoids stale closure entirely.
-  const syncFromDBImpl = async (legOverride = null) => {
-    const leg = legOverride || currentLegRef.current;
-    if (!leg?.id) return;
-
-    setSyncing(true);
-    const { data: turns } = await supabase
-      .from("turns")
-      .select("*")
-      .eq("leg_id", leg.id)
-      .order("turn_number", { ascending: true });
-
-    const derived = deriveStateFromTurns(turns || [], leg, matchData);
-    setXo1Scores(derived.xo1Scores);
-    setCricketState(derived.cricketState);
-    setCurrentPlayerIdx(derived.currentPlayerIdx);
-    setTurnNumber(derived.turnNumber);
-
-    // Only wipe in-flight darts if a REMOTE device submitted
-    // (submittingRef is true when we ourselves just wrote)
-    if (!submittingRef.current) {
-      setDarts([]);
-      setTurnBust(false);
-      setTurnWin(false);
-      setBustMessage("");
-    }
-    setSyncing(false);
-  };
-  const syncFromDBRef = useRef(syncFromDBImpl);
-  useEffect(() => { syncFromDBRef.current = syncFromDBImpl; });
-
-  const syncFromDB = (legOverride = null) => syncFromDBRef.current(legOverride);
-
-  // ── Initial load ───────────────────────────────────────────────────────────
+  // ── Rehydrate state from DB when resuming a match in progress ──────────────
   useEffect(() => {
-    if (initialLeg?.game_type && initialLeg?.first_player_id) {
-      syncFromDB(initialLeg);
-    } else if (initialLeg?.game_type && !initialLeg?.first_player_id) {
-      setAwaitingFirstThrow(true);
-    }
+    if (!initialLeg?.game_type || !initialLeg?.id) return; // brand new leg, nothing to load
+    const rehydrate = async () => {
+      setRehydrating(true);
+      const { data: turns } = await supabase
+        .from("turns")
+        .select("*")
+        .eq("leg_id", initialLeg.id)
+        .order("turn_number", { ascending: true });
+
+      if (!turns || turns.length === 0) {
+        setRehydrating(false);
+        return;
+      }
+
+      const p1id = match.match.player1_id;
+      const p2id = match.match.player2_id;
+
+      if (initialLeg.game_type === "501") {
+        // Reconstruct remaining scores
+        let scores = { [p1id]: 501, [p2id]: 501 };
+        for (const t of turns) {
+          if (t.score_remaining !== null) scores[t.player_id] = t.score_remaining;
+        }
+        setXo1Scores(scores);
+      } else if (initialLeg.game_type === "cricket") {
+        // Reconstruct cricket marks from last turn per player (marks are cumulative in DB)
+        // Points are stored per-turn as delta, so sum them
+        const cState = {
+          [p1id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
+          [p2id]: { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 },
+        };
+        // Accumulate points (delta per turn), take latest marks (cumulative)
+        for (const t of turns) {
+          const pid = t.player_id;
+          if (!cState[pid]) continue;
+          cState[pid].points += (t.cricket_points || 0);
+        }
+        // Use the last turn per player for cumulative mark counts
+        const lastTurnByPlayer = {};
+        for (const t of turns) { lastTurnByPlayer[t.player_id] = t; }
+        for (const [pid, t] of Object.entries(lastTurnByPlayer)) {
+          if (!cState[pid]) continue;
+          cState[pid][20]     = t.cricket_20   || 0;
+          cState[pid][19]     = t.cricket_19   || 0;
+          cState[pid][18]     = t.cricket_18   || 0;
+          cState[pid][17]     = t.cricket_17   || 0;
+          cState[pid][16]     = t.cricket_16   || 0;
+          cState[pid][15]     = t.cricket_15   || 0;
+          cState[pid]["Bull"] = t.cricket_bull || 0;
+        }
+        setCricketState(cState);
+      }
+
+      // Figure out whose turn it is: last turn's player → opponent goes next
+      const lastTurn = turns[turns.length - 1];
+      const lastPlayerIdx = [p1id, p2id].indexOf(lastTurn.player_id);
+      const nextPlayerIdx = 1 - lastPlayerIdx;
+      setCurrentPlayerIdx(nextPlayerIdx);
+      setTurnNumber(lastTurn.turn_number + (nextPlayerIdx === 0 ? 1 : 0));
+      setAwaitingFirstThrow(false);
+      setRehydrating(false);
+    };
+    rehydrate();
   }, []);
 
-  // ── Realtime subscriptions ─────────────────────────────────────────────────
-  // No row-level filters — receive all changes and filter in JS by match_id/leg_id.
-  // Row-level filters on postgres_changes require replica identity full and can
-  // silently fail; this approach is more reliable.
-  useEffect(() => {
-    const matchId = matchData.id;
-
-    const turnsChannel = supabase
-      .channel(`match-turns-${matchId}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "turns",
-      }, (payload) => {
-        const row = payload.new || payload.old;
-        if (row?.match_id !== matchId) return; // ignore other matches
-        syncFromDBRef.current();
-      })
-      .subscribe();
-
-    const legsChannel = supabase
-      .channel(`match-legs-${matchId}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "legs",
-      }, async (payload) => {
-        const updatedLeg = payload.new;
-        if (!updatedLeg || updatedLeg.match_id !== matchId) return;
-
-        if (updatedLeg.id === currentLegRef.current?.id) {
-          setCurrentLeg(updatedLeg);
-          currentLegRef.current = updatedLeg;
-
-          if (updatedLeg.status === "completed") return;
-
-          if (updatedLeg.game_type) {
-            setCurrentGameType(updatedLeg.game_type);
-            setLegGameTypes(prev => ({ ...prev, [updatedLeg.leg_number]: updatedLeg.game_type }));
-            setAwaitingGameChoice(false);
-          }
-          if (updatedLeg.first_player_id) {
-            const po = [matchData.player1_id, matchData.player2_id];
-            setCurrentPlayerIdx(po.indexOf(updatedLeg.first_player_id));
-            setAwaitingFirstThrow(false);
-          }
-        } else {
-          // New leg created by the other device
-          const { data: legs } = await supabase
-            .from("legs")
-            .select("*")
-            .eq("match_id", matchId)
-            .order("leg_number", { ascending: false });
-          const newLeg = legs?.find(l => l.status === "in_progress") || legs?.[0];
-          if (newLeg && newLeg.id !== currentLegRef.current?.id) {
-            currentLegRef.current = newLeg;
-            setCurrentLeg(newLeg);
-            setLegNumber(newLeg.leg_number);
-            setCurrentGameType(newLeg.game_type || null);
-            setXo1Scores({ [matchData.player1_id]: 501, [matchData.player2_id]: 501 });
-            setCricketState(initCricket());
-            setDarts([]); setTurnBust(false); setTurnWin(false); setBustMessage("");
-            setTurnNumber(1);
-            setAwaitingGameChoice(!newLeg.game_type);
-            setAwaitingFirstThrow(!!newLeg.game_type && !newLeg.first_player_id);
-          }
-        }
-      })
-      .subscribe();
-
-    const matchChannel = supabase
-      .channel(`match-row-${matchId}`)
-      .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "matches",
-      }, (payload) => {
-        const updated = payload.new;
-        if (!updated || updated.id !== matchId) return;
-        setLegScores({
-          [matchData.player1_id]: updated.player1_legs || 0,
-          [matchData.player2_id]: updated.player2_legs || 0,
-        });
-        if (updated.status === "completed") {
-          const matchWinner = updated.winner_id
-            ? players.find(p => p.id === updated.winner_id)
-            : null;
-          setWinner(matchWinner);
-          setMatchOver(true);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(turnsChannel);
-      supabase.removeChannel(legsChannel);
-      supabase.removeChannel(matchChannel);
-    };
-  }, [matchData.id]);
-
-  // ── Derived values ─────────────────────────────────────────────────────────
-  const p1 = players.find(p => p.id === match.match.player1_id);
+    const p1 = players.find(p => p.id === match.match.player1_id);
   const p2 = players.find(p => p.id === match.match.player2_id);
-  const playerOrder     = [match.match.player1_id, match.match.player2_id];
+  const playerOrder   = [match.match.player1_id, match.match.player2_id];
   const currentPlayerId = currentPlayerIdx !== null ? playerOrder[currentPlayerIdx] : null;
   const currentPlayer   = currentPlayerId === match.match.player1_id ? p1 : p2;
   const opponentId      = currentPlayerId ? playerOrder[1 - currentPlayerIdx] : null;
 
-  const isXO1 = currentGameType === "501";
-
+  // ── Live score calculations ────────────────────────────────────────────────
   const turnScore501 = darts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
   const remaining501 = currentPlayerId ? Math.max(0, xo1Scores[currentPlayerId] - turnScore501) : 501;
 
   // ── Dart entry handlers ────────────────────────────────────────────────────
   const handleDart501 = (dart) => {
     if (darts.length >= 3 || turnBust || turnWin) return;
+
+    // Snapshot BEFORE this dart so undo lands here (with current darts array)
     setHistory(prev => [...prev, captureSnapshot(darts)]);
 
     const newDarts = [...darts, dart];
     const totalSoFar = newDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
     const newRemaining = xo1Scores[currentPlayerId] - totalSoFar;
 
-    let bust = false, win = false;
+    let bust = false;
+    let win  = false;
+
     if (dart.number === "Miss") {
-      // no-op
+      // Miss — no score, no bust
     } else if (newRemaining < 0 || newRemaining === 1) {
       bust = true;
       setBustMessage(newRemaining < 0 ? "Bust! Score exceeded." : "Bust! Can't finish on 1.");
     } else if (newRemaining === 0) {
+      // Valid finish: double, single bull, or double bull
       const isBullFinish = dart.number === "Bull" || dart.number === "DBull";
       if (!isBullFinish && dart.modifier !== "double") {
         bust = true;
@@ -670,6 +554,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     if (bust) setTurnBust(true);
     if (win)  setTurnWin(true);
 
+    // Auto-submit after 3 darts, bust, or win
     if (newDarts.length === 3 || bust || win) {
       setTimeout(() => submitTurn501(newDarts, bust, win, currentPlayerId), 400);
     }
@@ -677,11 +562,14 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   const handleDartCricket = (dart) => {
     if (darts.length >= 3 || turnWin) return;
+
+    // Snapshot BEFORE this dart
     setHistory(prev => [...prev, captureSnapshot(darts)]);
 
     const newDarts = [...darts, dart];
     setDarts(newDarts);
 
+    // Apply marks to cricket state and check win
     const { newCricket, win } = applyCricketDart(dart, cricketState, currentPlayerId, opponentId);
     setCricketState(newCricket);
     if (win) setTurnWin(true);
@@ -693,11 +581,15 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   const applyCricketDart = (dart, state, myId, oppId) => {
     if (dart.number === "Miss") return { newCricket: state, win: false };
+
+    // Normalize: both "Bull" and "DBull" map to the cricket "Bull" slot
     const isBull = dart.number === "Bull" || dart.number === "DBull";
     const num = isBull ? "Bull" : dart.number;
+
     if (!CRICKET_NUMBERS.includes(num)) return { newCricket: state, win: false };
 
     const newCricket = JSON.parse(JSON.stringify(state));
+    // Single bull = 1 mark, Double bull = 2 marks, Triple = 3 marks (numbers only)
     const marks = isBull
       ? (dart.number === "DBull" ? 2 : 1)
       : (dart.modifier === "triple" ? 3 : dart.modifier === "double" ? 2 : 1);
@@ -727,12 +619,12 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   // ── Submit 501 turn ────────────────────────────────────────────────────────
   const submitTurn501 = async (submittedDarts, bust, win, playerId) => {
     setLoading(true);
-    submittingRef.current = true;
+
     const scored = bust ? 0 : submittedDarts.reduce((s, d) => s + dartValue(d.number, d.modifier), 0);
     const prevRemaining = xo1Scores[playerId];
     const newRemaining  = bust ? prevRemaining : prevRemaining - scored;
-    const d = submittedDarts;
 
+    const d = submittedDarts;
     const turnData = {
       leg_id:    currentLeg.id,
       match_id:  matchData.id,
@@ -758,6 +650,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
 
+    // Tag the last history snapshot (the one before the final dart) with the DB turn ID
+    // so undo across this turn boundary will delete the right row
     if (insertedTurn?.id) {
       setHistory(prev => {
         if (prev.length === 0) return prev;
@@ -767,7 +661,6 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       });
     }
 
-    // Update local state immediately (Realtime will also fire and sync — idempotent)
     if (!bust) {
       setXo1Scores(prev => ({ ...prev, [playerId]: newRemaining }));
     }
@@ -777,20 +670,13 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     } else {
       advanceTurn();
     }
-    submittingRef.current = false;
     setLoading(false);
   };
 
   // ── Submit Cricket turn ────────────────────────────────────────────────────
-  const countMarks = (darts, num) =>
-    darts.reduce((s, d) => {
-      if (d.number !== num) return s;
-      return s + (d.modifier === "triple" ? 3 : d.modifier === "double" ? 2 : 1);
-    }, 0);
-
   const submitTurnCricket = async (submittedDarts, finalCricket, win, playerId) => {
     setLoading(true);
-    submittingRef.current = true;
+
     const d = submittedDarts;
     const turnPoints = finalCricket[playerId].points - cricketState[playerId].points;
 
@@ -816,12 +702,13 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       cricket_18:   Math.min(3, countMarks(d, 18)),
       cricket_19:   Math.min(3, countMarks(d, 19)),
       cricket_20:   Math.min(3, countMarks(d, 20)),
-      cricket_bull:  Math.min(3, countMarks(d, "Bull")),
-      cricket_dbull: Math.min(2, countMarks(d, "DBull")),
+      cricket_bull:  Math.min(3, countMarks(d, "Bull")),   // single bull hits, capped at 3
+      cricket_dbull: Math.min(2, countMarks(d, "DBull")),  // double bull hits, max 1 per dart = 2 darts max
     };
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
 
+    // Tag the last history snapshot with the DB turn ID for cross-turn undo
     if (insertedTurn?.id) {
       setHistory(prev => {
         if (prev.length === 0) return prev;
@@ -836,8 +723,14 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     } else {
       advanceTurn();
     }
-    submittingRef.current = false;
     setLoading(false);
+  };
+
+  const countMarks = (darts, num) => {
+    return darts.reduce((s, d) => {
+      if (d.number !== num) return s;
+      return s + (d.modifier === "triple" ? 3 : d.modifier === "double" ? 2 : 1);
+    }, 0);
   };
 
   const advanceTurn = () => {
@@ -865,13 +758,14 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const p2Legs = newLegScores[match.match.player2_id];
     await supabase.from("matches").update({ player1_legs: p1Legs, player2_legs: p2Legs }).eq("id", matchData.id);
 
+    // All 5 legs are always played. After leg 5, whoever has more legs wins.
     const TOTAL_LEGS = 5;
     if (legNumber >= TOTAL_LEGS) {
       const matchWinnerId = p1Legs > p2Legs
         ? match.match.player1_id
         : p2Legs > p1Legs
         ? match.match.player2_id
-        : null;
+        : null; // tie - shouldn't happen but handle gracefully
       await supabase.from("matches").update({
         winner_id: matchWinnerId,
         status: "completed",
@@ -885,19 +779,26 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const nextLegNum = legNumber + 1;
     setLegNumber(nextLegNum);
 
+    // Create the next leg in DB without a game_type — will be set when players choose
     const { data: newLeg } = await supabase.from("legs").insert({
       match_id: matchData.id,
       leg_number: nextLegNum,
       starting_score: null,
       game_type: null,
     }).select().single();
-
     setCurrentLeg(newLeg);
+
+    // Reset game state
     setCurrentGameType(null);
     setTurnNumber(1);
-    setDarts([]); setTurnBust(false); setTurnWin(false); setBustMessage("");
+    setDarts([]);
+    setTurnBust(false);
+    setTurnWin(false);
+    setBustMessage("");
     setXo1Scores({ [match.match.player1_id]: 501, [match.match.player2_id]: 501 });
     setCricketState(initCricket());
+
+    // Always ask which game to play next, then who throws first
     setAwaitingGameChoice(true);
     setAwaitingFirstThrow(true);
   };
@@ -914,22 +815,30 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const chooseGame = async (gameType) => {
     setCurrentGameType(gameType);
     setLegGameTypes(prev => ({ ...prev, [legNumber]: gameType }));
+    // Update the leg in DB with chosen game type
     await supabase.from("legs").update({
       game_type: gameType,
       starting_score: gameType === "501" ? 501 : null,
     }).eq("id", currentLeg.id);
     setAwaitingGameChoice(false);
-    // Realtime will propagate game_type to other devices via the legs subscription
+    // awaitingFirstThrow is already true, so next screen is "who throws first"
   };
 
-  const chooseFirstThrow = async (playerId) => {
-    // Persist to DB so joining devices know who goes first
-    await supabase.from("legs").update({ first_player_id: playerId }).eq("id", currentLeg.id);
+  const chooseFirstThrow = (playerId) => {
     setCurrentPlayerIdx(playerOrder.indexOf(playerId));
     setAwaitingFirstThrow(false);
   };
 
-  // ── Game choice screen ─────────────────────────────────────────────────────
+  // ── Rehydrating guard ─────────────────────────────────────────────────────
+  if (rehydrating) {
+    return (
+      <div className="screen">
+        <div className="loading">Resuming match...</div>
+      </div>
+    );
+  }
+
+  // ── Game choice screen (shown before every leg) ────────────────────────────
   if (awaitingGameChoice) {
     return (
       <div className="screen">
@@ -993,10 +902,16 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
         let label = "·";
         let cls = "dart-slot empty";
         if (d) {
-          if (d.number === "Miss") { label = "Miss"; cls = "dart-slot miss"; }
-          else if (d.number === "Bull") { label = "Bull"; cls = "dart-slot filled single"; }
-          else if (d.number === "DBull") { label = "D Bull"; cls = "dart-slot filled double"; }
-          else {
+          if (d.number === "Miss") {
+            label = "Miss";
+            cls = "dart-slot miss";
+          } else if (d.number === "Bull") {
+            label = "Bull";
+            cls = "dart-slot filled single";
+          } else if (d.number === "DBull") {
+            label = "D Bull";
+            cls = "dart-slot filled double";
+          } else {
             const prefix = d.modifier === "double" ? "D" : d.modifier === "triple" ? "T" : "";
             label = `${prefix}${d.number}`;
             cls = `dart-slot filled ${d.modifier}`;
@@ -1016,7 +931,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
     return (
       <div className="scoreboard xo1-board">
-        <div className="player-score active-player">
+        <div className={`player-score active-player`}>
           <div className="player-name">{currentPlayer?.name}</div>
           <div className={`score-big ${turnBust ? "bust-score" : ""}`}>{liveRemain}</div>
           <div className="legs-count">Legs: {legScores[currentPlayerId]}</div>
@@ -1037,9 +952,23 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   // ── Cricket scoreboard ─────────────────────────────────────────────────────
   const CricketScoreboard = () => {
-    const myState  = cricketState[currentPlayerId]  || { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 };
-    const oppState = cricketState[opponentId] || { 20:0,19:0,18:0,17:0,16:0,15:0,Bull:0,points:0 };
-    const sym = (n, s) => { const m = s[n]; return m===0?"○":m===1?"/":m===2?"X":"✓"; };
+    const myState  = cricketState[currentPlayerId];
+    const oppState = cricketState[opponentId];
+    const markSymbol = (n) => {
+      const m = myState[n];
+      if (m === 0) return "○";
+      if (m === 1) return "/";
+      if (m === 2) return "X";
+      return "✓";
+    };
+    const oppMarkSymbol = (n) => {
+      const m = oppState[n];
+      if (m === 0) return "○";
+      if (m === 1) return "/";
+      if (m === 2) return "X";
+      return "✓";
+    };
+
     return (
       <div className="cricket-board">
         <div className="cricket-header">
@@ -1054,9 +983,9 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
         </div>
         {CRICKET_NUMBERS.map(n => (
           <div key={n} className="cricket-score-row">
-            <span className={`mark-cell ${myState[n] >= 3 ? "closed" : ""}`}>{sym(n, myState)}</span>
+            <span className={`mark-cell ${myState[n] >= 3 ? "closed" : ""}`}>{markSymbol(n)}</span>
             <span className="cricket-num-label">{n}</span>
-            <span className={`mark-cell ${oppState[n] >= 3 ? "closed" : ""}`}>{sym(n, oppState)}</span>
+            <span className={`mark-cell ${oppState[n] >= 3 ? "closed" : ""}`}>{oppMarkSymbol(n)}</span>
           </div>
         ))}
         <div className="cricket-leg-row">
@@ -1069,9 +998,11 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   };
 
   // ── Leg progress ───────────────────────────────────────────────────────────
-  const LegProgress = () => (
+  const LegProgress = () => {
+    const totalLegs = 5; // All 5 legs are always played
+    return (
     <div className="leg-progress">
-      {Array.from({ length: 5 }, (_, i) => i + 1).map(num => {
+      {Array.from({ length: totalLegs }, (_, i) => i + 1).map(num => {
         const done   = num < legNumber;
         const active = num === legNumber;
         const gameType = legGameTypes[num] || (num === legNumber ? currentGameType : null);
@@ -1085,18 +1016,11 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       })}
     </div>
   );
+  };
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <div className="screen active-match">
-      {/* Syncing indicator — shows when a remote update is being applied */}
-      {syncing && (
-        <div className="sync-indicator">
-          <Radio size={12} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle", marginRight: "0.3rem" }} />
-          Updating...
-        </div>
-      )}
-
       {confirmAbandon && (
         <div className="abandon-overlay">
           <div className="abandon-card">
@@ -1116,6 +1040,7 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
       <LegProgress />
 
       <div className="active-match-desktop">
+        {/* ── Left column: scoreboard + status + abandon ── */}
         <div className="active-match-left">
           {isXO1 ? <XO1Scoreboard /> : <CricketScoreboard />}
 
@@ -1123,11 +1048,11 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
             const myScore    = xo1Scores[currentPlayerId];
             const liveRemain = turnBust ? myScore : Math.max(0, myScore - turnScore501);
             const remainingPath = !turnBust && canCheckout(liveRemain) && liveRemain > 1
-              ? CHECKOUTS[liveRemain] : null;
+              ? CHECKOUTS[liveRemain]
+              : null;
             return remainingPath ? (
               <div className="checkout-hint">
-                <Target size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />
-                <span className="checkout-next">{remainingPath}</span>
+                <Target size={13} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} /><span className="checkout-next">{remainingPath}</span>
                 <span className="checkout-remain"> — {liveRemain} left</span>
               </div>
             ) : bustMessage ? (
@@ -1138,29 +1063,40 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
           <DartStrip />
 
           <div className="input-mode-toggle">
-            <button className={`mode-btn ${inputMode === "list" ? "active" : ""}`} onClick={() => setInputMode("list")}>
+            <button
+              className={`mode-btn ${inputMode === "list" ? "active" : ""}`}
+              onClick={() => setInputMode("list")}
+            >
               <List size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />List
             </button>
-            <button className={`mode-btn ${inputMode === "board" ? "active" : ""}`} onClick={() => setInputMode("board")}>
+            <button
+              className={`mode-btn ${inputMode === "board" ? "active" : ""}`}
+              onClick={() => setInputMode("board")}
+            >
               <Grid size={14} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.3rem"}} />Board
             </button>
             <button
               className={`mode-btn undo-btn ${darts.length === 0 && history.length === 0 ? "disabled-btn" : ""}`}
               onClick={handleUndo}
-              disabled={loading || (darts.length === 0 && history.length === 0)}>
+              disabled={loading || (darts.length === 0 && history.length === 0)}
+            >
               ↩ Undo
             </button>
           </div>
 
+          {/* List mode input renders in left column */}
           {inputMode === "list" && (
             isXO1
               ? <DartInput onSelect={handleDart501} disabled={loading || turnBust || turnWin || darts.length >= 3} inputMode={inputMode} />
               : <CricketDartInput onSelect={handleDartCricket} disabled={loading || turnWin || darts.length >= 3} inputMode={inputMode} />
           )}
 
-          <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>Leave Match</button>
+          <button className="btn-abandon" onClick={() => setConfirmAbandon(true)}>
+            Leave Match
+          </button>
         </div>
 
+        {/* ── Right column: board input (only in board mode) ── */}
         {inputMode === "board" && (
           <div className="active-match-right">
             {isXO1

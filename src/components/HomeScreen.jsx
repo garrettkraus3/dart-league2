@@ -1,4 +1,4 @@
-import { Zap, Trophy, TrendingUp, BarChart2, Settings } from "lucide-react";
+import { Target, Zap, Trophy, TrendingUp, BarChart2, Settings } from "lucide-react";
 
 const APP_VERSION = "V2.2026.03.29.21.34.29";
 
@@ -7,7 +7,7 @@ export default function HomeScreen({ navigate }) {
     <div className="home">
       <div className="home-header">
         <div className="bullseye-icon">
-          <img src="/sweet-release-logo.svg" alt="Sweet Release Dart League" style={{ width: 96, height: 96 }} />
+          <Target size={56} strokeWidth={1.5} color="#e8a020" />
         </div>
         <h1>SWEET RELEASE</h1>
         <p className="subtitle">Track. Compete. Dominate.</p>

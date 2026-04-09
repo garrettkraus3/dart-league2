@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Lock, Trophy, Trash2, Calendar, Zap, Flag } from "lucide-react";
 
+const ADMIN_EMAIL = "garrettkraus3@gmail.com";
+
 // ── Schedule generator ───────────────────────────────────────────────────────
 // Standard multi-week schedule: each player plays ~3 opponents per week
 function buildWeeklySchedule(playerIds, numWeeks) {
@@ -66,7 +68,6 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
 
   const [authed, setAuthed]         = useState(isAdminAuthed);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authEmail, setAuthEmail]   = useState("");
   const [authInput, setAuthInput]   = useState("");
   const [authError, setAuthError]   = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -124,19 +125,17 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   };
 
   const submitAuth = async () => {
-    const email = authEmail.trim();
-    if (!email || !authInput) { setAuthError("Enter your email and password."); return; }
+    if (!authInput) { setAuthError("Enter the password."); return; }
     setAuthLoading(true);
     setAuthError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password: authInput });
+    const { error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: authInput });
     setAuthLoading(false);
     if (error) {
-      setAuthError("Wrong email or password.");
+      setAuthError("Wrong password.");
       setAuthInput("");
     } else {
       setAuthed(true);
       setShowAuthModal(false);
-      setAuthEmail("");
       setAuthInput("");
       if (pendingAction === "create") { resetCreate(); setView("create"); }
       if (pendingAction === "delete") setConfirmDeleteSeason(pendingDeleteSeason);
@@ -352,7 +351,6 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
       setPendingAction("forfeit");
       setPendingDeleteSeason(null);
       setShowAuthModal(true);
-      setAuthEmail("");
       setAuthInput("");
       setAuthError("");
       // Store match so we can open it after auth
@@ -400,21 +398,15 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   const AuthModal = () => (
     <div className="abandon-overlay">
       <div className="abandon-card">
-        <h3><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin Sign In</h3>
+        <h3><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin Required</h3>
         <input
-          className="score-input" type="email" placeholder="Email"
-          value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && submitAuth()} autoFocus
-        />
-        <input
-          className="score-input" type="password" placeholder="Password"
+          className="score-input" type="password" placeholder="Admin password"
           value={authInput} onChange={e => setAuthInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && submitAuth()}
-          style={{ marginTop: "0.75rem" }}
+          onKeyDown={e => e.key === "Enter" && submitAuth()} autoFocus
         />
         {authError && <div className="error-msg">{authError}</div>}
         <button className="btn-primary big-btn" onClick={submitAuth} disabled={authLoading}>
-          {authLoading ? "Signing in..." : "Sign In"}
+          {authLoading ? "..." : "Enter"}
         </button>
         <button className="btn-secondary big-btn" onClick={() => setShowAuthModal(false)}>Cancel</button>
       </div>

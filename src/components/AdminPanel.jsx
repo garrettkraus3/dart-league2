@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import SeasonManager from "./SeasonManager";
 import { Lock, Settings, Trophy, Trash2, LogOut } from "lucide-react";
 
+const ADMIN_EMAIL = "garrettkraus3@gmail.com";
+
 export default function AdminPanel({ supabase, players, setPlayers, navigate, setGlobalLoading }) {
   const [authed, setAuthed] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -30,16 +31,12 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
   }, []);
 
   const login = async () => {
-    const email = emailInput.trim();
-    if (!email || !passwordInput) {
-      setLoginError("Enter your email and password.");
-      return;
-    }
+    if (!passwordInput) { setLoginError("Enter the password."); return; }
     setLoginLoading(true);
     setLoginError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password: passwordInput });
+    const { error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: passwordInput });
     if (error) {
-      setLoginError("Wrong email or password.");
+      setLoginError("Wrong password. Try again.");
       setPasswordInput("");
     } else {
       setAuthed(true);
@@ -165,16 +162,7 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
           <h2><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin</h2>
         </div>
         <div className="admin-login">
-          <p className="admin-login-sub">Sign in to access the admin panel.</p>
-          <input
-            className="score-input"
-            type="email"
-            placeholder="Email"
-            value={emailInput}
-            onChange={e => setEmailInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && login()}
-            autoFocus
-          />
+          <p className="admin-login-sub">Enter the admin password to continue.</p>
           <input
             className="score-input"
             type="password"
@@ -182,11 +170,11 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
             value={passwordInput}
             onChange={e => setPasswordInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && login()}
-            style={{ marginTop: "0.75rem" }}
+            autoFocus
           />
           {loginError && <div className="error-msg">{loginError}</div>}
           <button className="btn-primary big-btn" onClick={login} disabled={loginLoading}>
-            {loginLoading ? "Signing in..." : "SIGN IN"}
+            {loginLoading ? "..." : "ENTER"}
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import SeasonManager from "./SeasonManager";
 import { Lock, Settings, Trophy, Trash2 } from "lucide-react";
 
-const ADMIN_PASSWORD = "dartsarelife";
+const ADMIN_PASSWORD = "darts";
 
 export default function AdminPanel({ supabase, players, setPlayers, navigate, setGlobalLoading }) {
   const [authed, setAuthed] = useState(false);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Lock, Trophy, Trash2, Calendar, Zap, Flag } from "lucide-react";
 
-const ADMIN_PASSWORD = "dartsarelife";
+const ADMIN_PASSWORD = "darts";
 
 // ── Schedule generator ───────────────────────────────────────────────────────
 // Standard multi-week schedule: each player plays ~3 opponents per week

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import SeasonManager from "./SeasonManager";
-import { Lock, Settings, Trophy, Trash2 } from "lucide-react";
-
-const ADMIN_PASSWORD = "darts";
+import { Lock, Settings, Trophy, Trash2, LogOut } from "lucide-react";
 
 export default function AdminPanel({ supabase, players, setPlayers, navigate, setGlobalLoading }) {
   const [authed, setAuthed] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
-  const [passwordError, setPasswordError] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [tab, setTab] = useState("matches");
 
   // Matches state
@@ -22,14 +22,37 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
   const [playerLoading, setPlayerLoading] = useState(false);
   const [confirmDeletePlayer, setConfirmDeletePlayer] = useState(null);
 
-  const login = () => {
-    if (passwordInput === ADMIN_PASSWORD) {
-      setAuthed(true);
-      setPasswordError("");
-    } else {
-      setPasswordError("Wrong password. Try again.");
-      setPasswordInput("");
+  // Check for an existing session on mount so the admin stays logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setAuthed(true);
+    });
+  }, []);
+
+  const login = async () => {
+    const email = emailInput.trim();
+    if (!email || !passwordInput) {
+      setLoginError("Enter your email and password.");
+      return;
     }
+    setLoginLoading(true);
+    setLoginError("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password: passwordInput });
+    if (error) {
+      setLoginError("Wrong email or password.");
+      setPasswordInput("");
+    } else {
+      setAuthed(true);
+    }
+    setLoginLoading(false);
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setAuthed(false);
+    setEmailInput("");
+    setPasswordInput("");
+    navigate("home");
   };
 
   const loadMatches = async () => {
@@ -59,7 +82,6 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
   const resumeMatch = async (match) => {
     setResumeLoading(match.id);
 
-    // Fetch all legs for this match ordered by leg_number
     const { data: legs } = await supabase
       .from("legs")
       .select("*")
@@ -71,10 +93,8 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
       return;
     }
 
-    // Find the most recent incomplete leg
     let currentLeg = legs.find(l => l.status !== "completed");
 
-    // If all legs are completed but match is still in_progress, create the next leg
     if (!currentLeg && match.status !== "completed") {
       const nextLegNum = legs.length + 1;
       const { data: newLeg } = await supabase.from("legs").insert({
@@ -86,7 +106,6 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
       currentLeg = newLeg;
     }
 
-    // Last fallback: just use the last leg
     if (!currentLeg) currentLeg = legs[legs.length - 1];
 
     navigate("active", { match, currentLeg });
@@ -146,7 +165,16 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
           <h2><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin</h2>
         </div>
         <div className="admin-login">
-          <p className="admin-login-sub">Enter the admin password to continue.</p>
+          <p className="admin-login-sub">Sign in to access the admin panel.</p>
+          <input
+            className="score-input"
+            type="email"
+            placeholder="Email"
+            value={emailInput}
+            onChange={e => setEmailInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && login()}
+            autoFocus
+          />
           <input
             className="score-input"
             type="password"
@@ -154,11 +182,11 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
             value={passwordInput}
             onChange={e => setPasswordInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && login()}
-            autoFocus
+            style={{ marginTop: "0.75rem" }}
           />
-          {passwordError && <div className="error-msg">{passwordError}</div>}
-          <button className="btn-primary big-btn" onClick={login}>
-            ENTER
+          {loginError && <div className="error-msg">{loginError}</div>}
+          <button className="btn-primary big-btn" onClick={login} disabled={loginLoading}>
+            {loginLoading ? "Signing in..." : "SIGN IN"}
           </button>
         </div>
       </div>
@@ -171,6 +199,9 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
       <div className="screen-header">
         <button className="back-btn" onClick={() => navigate("home")}>← Back</button>
         <h2><Settings size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin</h2>
+        <button className="btn-secondary" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.8rem", padding: "0.3rem 0.7rem" }} onClick={logout}>
+          <LogOut size={13} strokeWidth={2} />Sign Out
+        </button>
       </div>
 
       <div className="button-group tabs">

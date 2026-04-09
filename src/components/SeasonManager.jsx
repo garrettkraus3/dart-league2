@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { Lock, Trophy, Trash2, Calendar, Zap, Flag } from "lucide-react";
 
-const ADMIN_PASSWORD = "darts";
-
 // ── Schedule generator ───────────────────────────────────────────────────────
 // Standard multi-week schedule: each player plays ~3 opponents per week
 function buildWeeklySchedule(playerIds, numWeeks) {
@@ -68,8 +66,10 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
 
   const [authed, setAuthed]         = useState(isAdminAuthed);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authEmail, setAuthEmail]   = useState("");
   const [authInput, setAuthInput]   = useState("");
   const [authError, setAuthError]   = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [pendingDeleteSeason, setPendingDeleteSeason] = useState(null);
 
@@ -91,11 +91,17 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   const [seasonPlayerIds, setSeasonPlayerIds] = useState([]);
   const [confirmDeleteSeason, setConfirmDeleteSeason] = useState(null);
   const [forfeitMatch, setForfeitMatch] = useState(null);       // match to forfeit
-  const [forfeitPassword, setForfeitPassword] = useState("");
-  const [forfeitError, setForfeitError] = useState("");
   const [forfeitLoading, setForfeitLoading] = useState(false);
 
-  useEffect(() => { loadSeasons(); }, []);
+  useEffect(() => {
+    loadSeasons();
+    // Respect an existing session (e.g. when accessed standalone after already logging in via AdminPanel)
+    if (!isAdminAuthed) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setAuthed(true);
+      });
+    }
+  }, []);
 
   const loadSeasons = async () => {
     setLoading(true);
@@ -117,15 +123,23 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
     setAuthError("");
   };
 
-  const submitAuth = () => {
-    if (authInput === ADMIN_PASSWORD) {
+  const submitAuth = async () => {
+    const email = authEmail.trim();
+    if (!email || !authInput) { setAuthError("Enter your email and password."); return; }
+    setAuthLoading(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password: authInput });
+    setAuthLoading(false);
+    if (error) {
+      setAuthError("Wrong email or password.");
+      setAuthInput("");
+    } else {
       setAuthed(true);
       setShowAuthModal(false);
+      setAuthEmail("");
+      setAuthInput("");
       if (pendingAction === "create") { resetCreate(); setView("create"); }
       if (pendingAction === "delete") setConfirmDeleteSeason(pendingDeleteSeason);
-    } else {
-      setAuthError("Wrong password.");
-      setAuthInput("");
     }
   };
 
@@ -334,16 +348,21 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   };
 
   const openForfeit = (m) => {
+    if (!authed) {
+      setPendingAction("forfeit");
+      setPendingDeleteSeason(null);
+      setShowAuthModal(true);
+      setAuthEmail("");
+      setAuthInput("");
+      setAuthError("");
+      // Store match so we can open it after auth
+      setForfeitMatch(m);
+      return;
+    }
     setForfeitMatch(m);
-    setForfeitPassword("");
-    setForfeitError("");
   };
 
   const submitForfeit = async (forfeitingPlayerId) => {
-    if (forfeitPassword !== ADMIN_PASSWORD) {
-      setForfeitError("Wrong password.");
-      return;
-    }
     setForfeitLoading(true);
     const m = forfeitMatch;
     const winnerId = forfeitingPlayerId === m.player1_id ? m.player2_id : m.player1_id;
@@ -362,8 +381,6 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
     }).eq("id", m.id);
 
     setForfeitMatch(null);
-    setForfeitPassword("");
-    setForfeitError("");
     setForfeitLoading(false);
     openSeason(detailSeason);
   };
@@ -383,14 +400,22 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
   const AuthModal = () => (
     <div className="abandon-overlay">
       <div className="abandon-card">
-        <h3><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin Required</h3>
+        <h3><Lock size={16} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:"0.4rem"}} />Admin Sign In</h3>
         <input
-          className="score-input" type="password" placeholder="Admin password"
-          value={authInput} onChange={e => setAuthInput(e.target.value)}
+          className="score-input" type="email" placeholder="Email"
+          value={authEmail} onChange={e => setAuthEmail(e.target.value)}
           onKeyDown={e => e.key === "Enter" && submitAuth()} autoFocus
         />
+        <input
+          className="score-input" type="password" placeholder="Password"
+          value={authInput} onChange={e => setAuthInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submitAuth()}
+          style={{ marginTop: "0.75rem" }}
+        />
         {authError && <div className="error-msg">{authError}</div>}
-        <button className="btn-primary big-btn" onClick={submitAuth}>Enter</button>
+        <button className="btn-primary big-btn" onClick={submitAuth} disabled={authLoading}>
+          {authLoading ? "Signing in..." : "Sign In"}
+        </button>
         <button className="btn-secondary big-btn" onClick={() => setShowAuthModal(false)}>Cancel</button>
       </div>
     </div>
@@ -635,15 +660,6 @@ export default function SeasonManager({ supabase, players, navigate, setGlobalLo
                   {forfeitMatch.p2?.name}
                 </button>
               </div>
-              <input
-                className="score-input"
-                type="password"
-                placeholder="Admin password"
-                value={forfeitPassword}
-                onChange={e => { setForfeitPassword(e.target.value); setForfeitError(""); }}
-                onKeyDown={e => e.key === "Enter" && document.activeElement.blur()}
-              />
-              {forfeitError && <div className="error-msg">{forfeitError}</div>}
               <button className="btn-secondary big-btn" style={{ marginTop: "0.5rem" }} onClick={() => setForfeitMatch(null)}>Cancel</button>
             </div>
           </div>

@@ -120,8 +120,8 @@ async function computeSeasonStats(supabase, playerId, seasonId) {
     three_dart_avg: nonBust.length ? (nonBust.reduce((s, r) => s + r.score, 0) / nonBust.length).toFixed(1) : null,
     high_score: nonBust.length ? Math.max(...nonBust.map(r => r.score)) : null,
     scores_180:      nonBust.filter(r => r.score === 180).length,
-    scores_150_plus: nonBust.filter(r => r.score >= 150).length,
-    scores_100_plus: nonBust.filter(r => r.score >= 100).length,
+    scores_high_ton: nonBust.filter(r => r.score >= 150 && r.score < 180).length,
+    scores_low_ton:  nonBust.filter(r => r.score >= 100 && r.score < 150).length,
     checkout_pct: bustOrCheckout.length ? ((checkoutRounds.length / bustOrCheckout.length) * 100).toFixed(1) : null,
     high_checkout: checkoutRounds.length ? Math.max(...checkoutRounds.map(r => r.score)) : null,
   };
@@ -252,28 +252,28 @@ function PlayerTab({ supabase, players }) {
                   <StatTile label="3-Dart Avg" value={fmt1(stats.xo1?.three_dart_avg)} color={C.accent2} sub="per round" />
                   <StatTile label="High Score" value={fmtNum(stats.xo1?.high_score)} color={C.blue} />
                   <StatTile label="180s" value={fmtNum(stats.xo1?.scores_180)} color={C.purple} />
-                  <StatTile label="150+" value={fmtNum(stats.xo1?.scores_150_plus)} />
-                  <StatTile label="100+" value={fmtNum(stats.xo1?.scores_100_plus)} />
+                  <StatTile label="High Ton" value={fmtNum(stats.xo1?.scores_high_ton)} />
+                  <StatTile label="Low Ton" value={fmtNum(stats.xo1?.scores_low_ton)} />
                   <StatTile label="Checkout %" value={fmtPct(stats.xo1?.checkout_pct)} color={C.green} />
                   <StatTile label="High Checkout" value={fmtNum(stats.xo1?.high_checkout)} color={C.accent} />
                 </div>
                 {/* mini score distribution bar */}
-                {(stats.xo1.scores_180 > 0 || stats.xo1.scores_150_plus > 0 || stats.xo1.scores_100_plus > 0) && (
+                {(stats.xo1.scores_180 > 0 || stats.xo1.scores_high_ton > 0 || stats.xo1.scores_low_ton > 0) && (
                   <div className="sp-chart-wrap" style={{ height: 120 }}>
                     <ResponsiveContainer>
                       <BarChart data={[{
                         name:"Scores",
-                        "180s": stats.xo1.scores_180||0,
-                        "150+": (stats.xo1.scores_150_plus||0)-(stats.xo1.scores_180||0),
-                        "100+": (stats.xo1.scores_100_plus||0)-(stats.xo1.scores_150_plus||0),
+                        "180s":     stats.xo1.scores_180||0,
+                        "High Ton": stats.xo1.scores_high_ton||0,
+                        "Low Ton":  stats.xo1.scores_low_ton||0,
                       }]} layout="vertical" margin={{left:0,right:0}}>
                         <CartesianGrid horizontal={false} stroke={C.border} />
                         <XAxis type="number" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
                         <YAxis type="category" dataKey="name" hide />
                         <Tooltip content={<DarkTooltip/>}/>
-                        <Bar dataKey="180s" stackId="a" fill={C.purple} radius={[0,0,0,0]}/>
-                        <Bar dataKey="150+" stackId="a" fill={C.accent}/>
-                        <Bar dataKey="100+" stackId="a" fill={C.blue} radius={[0,4,4,0]}/>
+                        <Bar dataKey="180s"     stackId="a" fill={C.purple} radius={[0,0,0,0]}/>
+                        <Bar dataKey="High Ton" stackId="a" fill={C.accent}/>
+                        <Bar dataKey="Low Ton"  stackId="a" fill={C.blue} radius={[0,4,4,0]}/>
                         <Legend wrapperStyle={{fontSize:11, color:C.muted}}/>
                       </BarChart>
                     </ResponsiveContainer>
@@ -380,9 +380,9 @@ function SeasonTab({ supabase, players }) {
   const winChartData = xo1Rows.map(r=>({ name: r.player, pct: parseFloat(r.xo1.win_pct)||0 }));
   const scoreDistData = xo1Rows.map(r=>({
     name: r.player,
-    "180s": r.xo1.scores_180||0,
-    "150+": (r.xo1.scores_150_plus||0)-(r.xo1.scores_180||0),
-    "100+": (r.xo1.scores_100_plus||0)-(r.xo1.scores_150_plus||0),
+    "180s":     r.xo1.scores_180||0,
+    "High Ton": r.xo1.scores_high_ton||0,
+    "Low Ton":  r.xo1.scores_low_ton||0,
   }));
 
   const SeasonSortBtn = ({ field, current, set, label }) => (
@@ -461,9 +461,9 @@ function SeasonTab({ supabase, players }) {
                       <YAxis type="category" dataKey="name" tick={{fill:C.text,fontSize:12}} width={80} axisLine={false} tickLine={false}/>
                       <Tooltip content={<DarkTooltip/>} cursor={{fill:"rgba(255,255,255,0.04)"}}/>
                       <Legend wrapperStyle={{color:C.muted,fontSize:12}}/>
-                      <Bar dataKey="180s" stackId="a" fill={C.purple}/>
-                      <Bar dataKey="150+" stackId="a" fill={C.accent}/>
-                      <Bar dataKey="100+" stackId="a" fill={C.blue} radius={[0,4,4,0]}/>
+                      <Bar dataKey="180s"     stackId="a" fill={C.purple}/>
+                      <Bar dataKey="High Ton" stackId="a" fill={C.accent}/>
+                      <Bar dataKey="Low Ton"  stackId="a" fill={C.blue} radius={[0,4,4,0]}/>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

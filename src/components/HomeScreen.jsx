@@ -1,4 +1,4 @@
-import { Target, Zap, Trophy, TrendingUp, BarChart2, Settings } from "lucide-react";
+import { Target, Zap, Trophy, BarChart2, Settings } from "lucide-react";
 
 const APP_VERSION = "V2.2026.03.29.21.34.29";
 
@@ -21,10 +21,6 @@ export default function HomeScreen({ navigate }) {
         <button className="btn-secondary big-btn" onClick={() => navigate("seasons")}>
           <span className="btn-icon"><Trophy size={18} strokeWidth={2} /></span>
           SEASONS
-        </button>
-        <button className="btn-secondary big-btn" onClick={() => navigate("leaderboard")}>
-          <span className="btn-icon"><TrendingUp size={18} strokeWidth={2} /></span>
-          LEADERBOARD
         </button>
         <button className="btn-secondary big-btn" onClick={() => navigate("stats")}>
           <span className="btn-icon"><BarChart2 size={18} strokeWidth={2} /></span>

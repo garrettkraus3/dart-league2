@@ -78,7 +78,7 @@ async function computeSeasonStats(supabase, playerId, seasonId) {
     .select("id, game_type, player1_id, player2_id, winner_id, player1_legs, player2_legs, status")
     .in("id", matchIds).eq("status", "completed")
     .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
-  if (!matches?.length) return { xo1: null, cricket: null };
+  if (!matches?.length) return { matchStats: null, xo1: null, cricket: null };
 
   const allMatchIds = matches.map(m => m.id);
   const { data: legs } = await supabase
@@ -131,8 +131,18 @@ async function computeSeasonStats(supabase, playerId, seasonId) {
     high_checkout: checkoutRounds.length ? Math.max(...checkoutRounds.map(r => r.score)) : null,
   };
 
+  // Match Stats (series level — overall wins/losses across all game types)
+  const allMatchWins = matches.filter(m => m.winner_id === playerId).length;
+  const matchStats = {
+    matches_played: matches.length,
+    matches_won: allMatchWins,
+    win_pct: matches.length ? ((allMatchWins / matches.length) * 100).toFixed(1) : 0,
+  };
+
   // Cricket
-  const cricketLegIds = new Set((legs || []).filter(l => l.game_type === "cricket").map(l => l.id));
+  const cricketLegs   = (legs || []).filter(l => l.game_type === "cricket");
+  const cricketLegIds = new Set(cricketLegs.map(l => l.id));
+  const cricketLegsWon = cricketLegs.filter(l => l.winner_id === playerId).length;
   const cricketTurns  = turns.filter(t => t.leg_id && cricketLegIds.has(t.leg_id));
   const cRoundMap = {};
   for (const t of cricketTurns) {
@@ -149,11 +159,14 @@ async function computeSeasonStats(supabase, playerId, seasonId) {
     matches_played: cricketMatches.length,
     matches_won: cricketWins,
     win_pct: cricketMatches.length ? ((cricketWins / cricketMatches.length) * 100).toFixed(1) : 0,
+    legs_played: cricketLegs.length,
+    legs_won: cricketLegsWon,
+    leg_win_pct: cricketLegs.length ? ((cricketLegsWon / cricketLegs.length) * 100).toFixed(1) : null,
     avg_marks_per_round: cRounds.length ? (cRounds.reduce((s,r)=>s+r.marks,0)/cRounds.length).toFixed(2) : null,
     total_points_scored: cRounds.reduce((s,r)=>s+r.points,0),
   };
 
-  return { xo1: xo1Stats, cricket: cricketStats };
+  return { matchStats, xo1: xo1Stats, cricket: cricketStats };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -198,7 +211,16 @@ function PlayerTab({ supabase, players }) {
           `player1.eq.${players.find(p=>p.id===pid)?.name},player2.eq.${players.find(p=>p.id===pid)?.name}`
         ),
       ]);
-      setStats({ xo1: r1.data, cricket: r2.data, isComputed: false });
+      setStats({
+        matchStats: r1.data ? {
+          matches_played: r1.data.matches_played,
+          matches_won:    r1.data.matches_won,
+          win_pct:        r1.data.win_pct,
+        } : null,
+        xo1:     r1.data,
+        cricket: r2.data,
+        isComputed: false,
+      });
       setH2h(r3.data||[]);
     } else {
       const computed = await computeSeasonStats(supabase, pid, sid);
@@ -246,15 +268,25 @@ function PlayerTab({ supabase, players }) {
             </div>
           </div>
 
+          {/* Match Stats */}
+          <Card title="MATCH STATS" accent={C.blue}>
+            {stats.matchStats ? (
+              <div className="sp-tiles">
+                <StatTile label="Matches" value={fmtNum(stats.matchStats?.matches_played)} />
+                <StatTile label="Wins"    value={fmtNum(stats.matchStats?.matches_won)} color={C.green} />
+                <StatTile label="Win %"   value={fmtPct(stats.matchStats?.win_pct)} color={C.accent} />
+              </div>
+            ) : <div className="sp-no-data">No match data</div>}
+          </Card>
+
           {/* 01 stats */}
           <Card title="01 GAME STATS" accent={C.accent}>
-            {stats.xo1 && (stats.xo1.matches_played > 0 || !stats.isComputed) ? (
+            {stats.xo1 && (stats.xo1.legs_played > 0 || !stats.isComputed) ? (
               <>
                 <div className="sp-tiles">
-                  <StatTile label="Matches" value={fmtNum(stats.xo1?.matches_played)} />
-                  <StatTile label="Wins" value={fmtNum(stats.xo1?.matches_won)} color={C.green} />
-                  <StatTile label="Win % - Matches" value={fmtPct(stats.xo1?.win_pct)} color={C.accent} />
-                  <StatTile label="Win % - Legs" value={fmtPct(stats.xo1?.leg_win_pct ?? (stats.xo1?.legs_played ? ((stats.xo1.legs_won / stats.xo1.legs_played) * 100).toFixed(1) : null))} color={C.accent} />
+                  <StatTile label="Legs" value={fmtNum(stats.xo1?.legs_played)} />
+                  <StatTile label="Wins" value={fmtNum(stats.xo1?.legs_won)} color={C.green} />
+                  <StatTile label="Win %" value={fmtPct(stats.xo1?.leg_win_pct ?? (stats.xo1?.legs_played ? ((stats.xo1.legs_won / stats.xo1.legs_played) * 100).toFixed(1) : null))} color={C.accent} />
                   <StatTile label="3-Dart Avg" value={fmt1(stats.xo1?.three_dart_avg)} color={C.accent2} sub="per round" />
                   <StatTile label="High Score" value={fmtNum(stats.xo1?.high_score)} color={C.blue} />
                   <StatTile label="180s" value={fmtNum(stats.xo1?.scores_180)} color={C.purple} />
@@ -291,12 +323,12 @@ function PlayerTab({ supabase, players }) {
 
           {/* Cricket stats */}
           <Card title="CRICKET STATS" accent={C.green}>
-            {stats.cricket && (stats.cricket.matches_played > 0 || !stats.isComputed) ? (
+            {stats.cricket && (stats.cricket.legs_played > 0 || !stats.isComputed) ? (
               <div className="sp-tiles">
-                <StatTile label="Matches" value={fmtNum(stats.cricket?.matches_played)} />
-                <StatTile label="Wins" value={fmtNum(stats.cricket?.matches_won)} color={C.green} />
-                <StatTile label="Win %" value={fmtPct(stats.cricket?.win_pct)} color={C.accent} />
-                <StatTile label="Marks/Round" value={fmt1(stats.cricket?.avg_marks_per_round)} color={C.accent} />
+                <StatTile label="Legs"         value={fmtNum(stats.cricket?.legs_played)} />
+                <StatTile label="Wins"         value={fmtNum(stats.cricket?.legs_won)} color={C.green} />
+                <StatTile label="Win %"        value={fmtPct(stats.cricket?.leg_win_pct ?? (stats.cricket?.legs_played ? ((stats.cricket.legs_won / stats.cricket.legs_played) * 100).toFixed(1) : null))} color={C.accent} />
+                <StatTile label="Marks/Round"  value={fmt1(stats.cricket?.avg_marks_per_round)} color={C.accent} />
                 <StatTile label="Points Scored" value={fmtNum(stats.cricket?.total_points_scored)} color={C.blue} />
               </div>
             ) : <div className="sp-no-data">No Cricket matches in this period</div>}

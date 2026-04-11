@@ -388,6 +388,8 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
   // ── Realtime: track turns submitted by THIS device to skip re-applying them
   const localTurnIds = useRef(new Set());
+  // Holds the active broadcast channel so dart-throw handlers can send to it
+  const broadcastChannelRef = useRef(null);
 
   // Always-fresh snapshot of key state for realtime callbacks (avoids stale closures)
   const realtimeStateRef = useRef({});
@@ -558,12 +560,15 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     setAwaitingFirstThrow(false);
   };
 
-  // ── Realtime: subscribe to turns for the current leg ──────────────────────
+  // ── Realtime: subscribe to turns + dart broadcasts for the current leg ──────
   useEffect(() => {
     if (!currentLeg?.id) return;
     const legId = currentLeg.id;
     const channel = supabase
-      .channel(`live-turns-${legId}`)
+      .channel(`live-game-${legId}`, {
+        config: { broadcast: { self: false } }, // never receive own broadcasts
+      })
+      // Postgres: full turn committed to DB by another device
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
@@ -574,9 +579,25 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
         if (localTurnIds.current.has(turn.id)) return; // already applied locally
         applyRemoteTurn(turn);
       })
+      // Broadcast: individual dart throw from another device
+      .on("broadcast", { event: "dart" }, (payload) => {
+        const p = payload.payload;
+        setCurrentPlayerIdx(p.playerIdx);
+        setDarts(p.darts);
+        setTurnBust(p.turnBust || false);
+        setBustMessage(p.bustMessage || "");
+        setTurnWin(p.turnWin || false);
+        if (p.cricketState) setCricketState(p.cricketState);
+        setAwaitingFirstThrow(false);
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [currentLeg?.id]); // re-subscribe each new leg
+
+    broadcastChannelRef.current = channel;
+    return () => {
+      broadcastChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [currentLeg?.id]);
 
   // ── Realtime: subscribe to leg changes for this match ─────────────────────
   useEffect(() => {
@@ -697,6 +718,18 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     if (bust) setTurnBust(true);
     if (win)  setTurnWin(true);
 
+    // Broadcast this dart to other devices instantly
+    broadcastChannelRef.current?.send({
+      type: "broadcast", event: "dart",
+      payload: {
+        playerIdx:   currentPlayerIdx,
+        darts:       newDarts,
+        turnBust:    bust,
+        bustMessage: bust ? (newRemaining < 0 ? "Bust! Score exceeded." : newRemaining === 1 ? "Bust! Can't finish on 1." : "Bust! Must finish on a double or bull.") : "",
+        turnWin:     win,
+      },
+    });
+
     // Auto-submit after 3 darts, bust, or win
     if (newDarts.length === 3 || bust || win) {
       setTimeout(() => submitTurn501(newDarts, bust, win, currentPlayerId), 400);
@@ -716,6 +749,19 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     const { newCricket, win } = applyCricketDart(dart, cricketState, currentPlayerId, opponentId);
     setCricketState(newCricket);
     if (win) setTurnWin(true);
+
+    // Broadcast this dart + updated cricket state to other devices instantly
+    broadcastChannelRef.current?.send({
+      type: "broadcast", event: "dart",
+      payload: {
+        playerIdx:    currentPlayerIdx,
+        darts:        newDarts,
+        turnBust:     false,
+        bustMessage:  "",
+        turnWin:      win,
+        cricketState: newCricket,
+      },
+    });
 
     if (newDarts.length === 3 || win) {
       setTimeout(() => submitTurnCricket(newDarts, newCricket, win, currentPlayerId), 400);

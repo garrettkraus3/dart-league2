@@ -98,7 +98,8 @@ async function computeSeasonStats(supabase, playerId, seasonId) {
   }
 
   // 01
-  const xo1LegIds = new Set((legs || []).filter(l => l.game_type === "501" || l.game_type === "301").map(l => l.id));
+  const xo1Legs   = (legs || []).filter(l => l.game_type === "501" || l.game_type === "301");
+  const xo1LegIds = new Set(xo1Legs.map(l => l.id));
   const xo1Turns  = turns.filter(t => t.leg_id && xo1LegIds.has(t.leg_id) && t.score !== null);
   const roundMap  = {};
   for (const t of xo1Turns) {
@@ -112,11 +113,15 @@ async function computeSeasonStats(supabase, playerId, seasonId) {
   const nonBust         = rounds.filter(r => !r.isBust);
   const checkoutRounds  = rounds.filter(r => r.isCheckout);
   const bustOrCheckout  = rounds.filter(r => r.isBust || r.isCheckout);
-  const xo1Wins = xo1Matches.filter(m => m.winner_id === playerId).length;
+  const xo1Wins     = xo1Matches.filter(m => m.winner_id === playerId).length;
+  const xo1LegsWon  = xo1Legs.filter(l => l.winner_id === playerId).length;
   const xo1Stats = {
     matches_played: xo1Matches.length,
     matches_won: xo1Wins,
     win_pct: xo1Matches.length ? ((xo1Wins / xo1Matches.length) * 100).toFixed(1) : 0,
+    legs_played: xo1Legs.length,
+    legs_won: xo1LegsWon,
+    leg_win_pct: xo1Legs.length ? ((xo1LegsWon / xo1Legs.length) * 100).toFixed(1) : null,
     three_dart_avg: nonBust.length ? (nonBust.reduce((s, r) => s + r.score, 0) / nonBust.length).toFixed(1) : null,
     high_score: nonBust.length ? Math.max(...nonBust.map(r => r.score)) : null,
     scores_180:      nonBust.filter(r => r.score === 180).length,
@@ -248,7 +253,8 @@ function PlayerTab({ supabase, players }) {
                 <div className="sp-tiles">
                   <StatTile label="Matches" value={fmtNum(stats.xo1?.matches_played)} />
                   <StatTile label="Wins" value={fmtNum(stats.xo1?.matches_won)} color={C.green} />
-                  <StatTile label="Win %" value={fmtPct(stats.xo1?.win_pct)} color={C.accent} />
+                  <StatTile label="Win % - Matches" value={fmtPct(stats.xo1?.win_pct)} color={C.accent} />
+                  <StatTile label="Win % - Legs" value={fmtPct(stats.xo1?.leg_win_pct ?? (stats.xo1?.legs_played ? ((stats.xo1.legs_won / stats.xo1.legs_played) * 100).toFixed(1) : null))} color={C.accent} />
                   <StatTile label="3-Dart Avg" value={fmt1(stats.xo1?.three_dart_avg)} color={C.accent2} sub="per round" />
                   <StatTile label="High Score" value={fmtNum(stats.xo1?.high_score)} color={C.blue} />
                   <StatTile label="180s" value={fmtNum(stats.xo1?.scores_180)} color={C.purple} />
@@ -432,7 +438,7 @@ function SeasonTab({ supabase, players }) {
                 </div>
               </Card>
 
-              <Card title="WIN % COMPARISON" accent={C.green}>
+              <Card title="WIN % COMPARISON (MATCHES)" accent={C.green}>
                 <div className="sp-chart-wrap" style={{ height: Math.max(200, xo1Rows.length * 44) }}>
                   <ResponsiveContainer>
                     <BarChart data={winChartData} layout="vertical" margin={{left:8,right:36,top:4,bottom:4}}>
@@ -472,14 +478,16 @@ function SeasonTab({ supabase, players }) {
               {/* 01 leaderboard table */}
               <Card title="01 LEADERBOARD" accent={C.accent}>
                 <div className="sp-sort-row">
-                  <SeasonSortBtn field="win_pct" current={sort01} set={setSort01} label="Win %" />
+                  <SeasonSortBtn field="win_pct" current={sort01} set={setSort01} label="Win % (M)" />
+                  <SeasonSortBtn field="leg_win_pct" current={sort01} set={setSort01} label="Win % (L)" />
                   <SeasonSortBtn field="three_dart_avg" current={sort01} set={setSort01} label="Avg" />
                   <SeasonSortBtn field="scores_180" current={sort01} set={setSort01} label="180s" />
                   <SeasonSortBtn field="checkout_pct" current={sort01} set={setSort01} label="CKO %" />
                 </div>
                 <div className="sp-data-table">
                   <div className="sp-dt-head">
-                    <span>#</span><span>Player</span><span>W</span><span>L</span><span>Win%</span>
+                    <span>#</span><span>Player</span><span>W</span><span>L</span>
+                    <span>Win%(M)</span><span>Win%(L)</span>
                     <span>Avg</span><span>180s</span><span>CKO%</span><span>Hi</span>
                   </div>
                   {xo1Rows.map((r, i) => (
@@ -489,6 +497,7 @@ function SeasonTab({ supabase, players }) {
                       <span style={{color:C.green}}>{r.xo1.matches_won}</span>
                       <span style={{color:C.accent2}}>{r.xo1.matches_played-r.xo1.matches_won}</span>
                       <span style={{color:C.accent}}>{fmtPct(r.xo1.win_pct)}</span>
+                      <span style={{color:C.accent}}>{fmtPct(r.xo1.leg_win_pct)}</span>
                       <span>{fmt1(r.xo1.three_dart_avg)}</span>
                       <span style={{color:C.purple}}>{r.xo1.scores_180||0}</span>
                       <span>{fmtPct(r.xo1.checkout_pct)}</span>
@@ -654,7 +663,7 @@ function SeasonCompareTab({ supabase, players }) {
           <Card title="SEASON SUMMARY TABLE" accent={C.muted}>
             <div className="sp-data-table">
               <div className="sp-dt-head">
-                <span>Season</span><span>Avg</span><span>Win%</span><span>180s</span><span>Mks/Rnd</span>
+                <span>Season</span><span>Avg</span><span>Win%(M)</span><span>180s</span><span>Mks/Rnd</span>
               </div>
               {data.map((d,i)=>(
                 <div key={d.season} className={`sp-dt-row ${i%2===0?"even":""}`}>

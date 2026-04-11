@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Target, Trophy, Trash2, Grid, List } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -386,6 +386,19 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
   const [bustMessage, setBustMessage] = useState("");
   const [inputMode, setInputMode]   = useState("list"); // "list" | "board"
 
+  // ── Realtime: track turns submitted by THIS device to skip re-applying them
+  const localTurnIds = useRef(new Set());
+
+  // Always-fresh snapshot of key state for realtime callbacks (avoids stale closures)
+  const realtimeStateRef = useRef({});
+  realtimeStateRef.current = {
+    currentGameType,
+    currentLeg,
+    legNumber,
+    matchOver,
+    playerOrder: [match.match.player1_id, match.match.player2_id],
+  };
+
   // ── Undo history stack ────────────────────────────────────────────────────
   // Snapshot taken BEFORE each dart is recorded — restores to that exact moment.
   // turnIdToDelete is set only on the 3rd-dart snapshot (when a turn was committed to DB).
@@ -509,7 +522,137 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     rehydrate();
   }, []);
 
-    const p1 = players.find(p => p.id === match.match.player1_id);
+  // ── Apply a turn that arrived from another device ──────────────────────────
+  const applyRemoteTurn = (turn) => {
+    const { currentGameType: gt, playerOrder: po } = realtimeStateRef.current;
+
+    if (gt === "501") {
+      if (turn.score_remaining !== null) {
+        setXo1Scores(prev => ({ ...prev, [turn.player_id]: turn.score_remaining }));
+      }
+    } else if (gt === "cricket") {
+      setCricketState(prev => {
+        const next = JSON.parse(JSON.stringify(prev));
+        const pid = turn.player_id;
+        if (!next[pid]) return prev;
+        next[pid][20]     = Math.min(3, (next[pid][20]     || 0) + (turn.cricket_20   || 0));
+        next[pid][19]     = Math.min(3, (next[pid][19]     || 0) + (turn.cricket_19   || 0));
+        next[pid][18]     = Math.min(3, (next[pid][18]     || 0) + (turn.cricket_18   || 0));
+        next[pid][17]     = Math.min(3, (next[pid][17]     || 0) + (turn.cricket_17   || 0));
+        next[pid][16]     = Math.min(3, (next[pid][16]     || 0) + (turn.cricket_16   || 0));
+        next[pid][15]     = Math.min(3, (next[pid][15]     || 0) + (turn.cricket_15   || 0));
+        next[pid]["Bull"] = Math.min(3, (next[pid]["Bull"] || 0) + (turn.cricket_bull || 0) + (turn.cricket_dbull || 0));
+        next[pid].points += (turn.cricket_points || 0);
+        return next;
+      });
+    }
+
+    const playerIdx = po.indexOf(turn.player_id);
+    const nextIdx   = playerIdx === -1 ? 0 : 1 - playerIdx;
+    setCurrentPlayerIdx(nextIdx);
+    setTurnNumber(prev => prev + (nextIdx === 0 ? 1 : 0));
+    setDarts([]);
+    setTurnBust(false);
+    setTurnWin(false);
+    setBustMessage("");
+    setAwaitingFirstThrow(false);
+  };
+
+  // ── Realtime: subscribe to turns for the current leg ──────────────────────
+  useEffect(() => {
+    if (!currentLeg?.id) return;
+    const legId = currentLeg.id;
+    const channel = supabase
+      .channel(`live-turns-${legId}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "turns",
+        filter: `leg_id=eq.${legId}`,
+      }, (payload) => {
+        const turn = payload.new;
+        if (localTurnIds.current.has(turn.id)) return; // already applied locally
+        applyRemoteTurn(turn);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentLeg?.id]); // re-subscribe each new leg
+
+  // ── Realtime: subscribe to leg changes for this match ─────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel(`live-legs-${matchData.id}`)
+      // Game type chosen on another device
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "legs",
+        filter: `match_id=eq.${matchData.id}`,
+      }, (payload) => {
+        const leg = payload.new;
+        const { currentLeg: cl } = realtimeStateRef.current;
+        if (cl && leg.id === cl.id && leg.game_type) {
+          setCurrentLeg(prev => ({ ...prev, game_type: leg.game_type }));
+          setCurrentGameType(leg.game_type);
+          setLegGameTypes(prev => ({ ...prev, [leg.leg_number]: leg.game_type }));
+          setAwaitingGameChoice(false);
+        }
+      })
+      // New leg started on another device
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "legs",
+        filter: `match_id=eq.${matchData.id}`,
+      }, (payload) => {
+        const leg = payload.new;
+        const { legNumber: ln } = realtimeStateRef.current;
+        if (leg.leg_number > ln) {
+          setCurrentLeg(leg);
+          setLegNumber(leg.leg_number);
+          setCurrentGameType(null);
+          setDarts([]);
+          setTurnBust(false);
+          setTurnWin(false);
+          setBustMessage("");
+          setXo1Scores({ [match.match.player1_id]: 501, [match.match.player2_id]: 501 });
+          setCricketState(initCricket());
+          setAwaitingGameChoice(true);
+          setAwaitingFirstThrow(true);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [matchData.id]);
+
+  // ── Realtime: subscribe to match updates (scores + completion) ─────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel(`live-match-${matchData.id}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "matches",
+        filter: `id=eq.${matchData.id}`,
+      }, (payload) => {
+        const m = payload.new;
+        // Sync leg scores from authoritative DB values
+        setLegScores({
+          [m.player1_id]: m.player1_legs || 0,
+          [m.player2_id]: m.player2_legs || 0,
+        });
+        // Handle match completion
+        if (m.status === "completed" && !realtimeStateRef.current.matchOver) {
+          const matchWinner = players.find(p => p.id === m.winner_id);
+          setWinner(matchWinner || null);
+          setMatchOver(true);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [matchData.id]);
+
+  const p1 = players.find(p => p.id === match.match.player1_id);
   const p2 = players.find(p => p.id === match.match.player2_id);
   const playerOrder   = [match.match.player1_id, match.match.player2_id];
   const currentPlayerId = currentPlayerIdx !== null ? playerOrder[currentPlayerIdx] : null;
@@ -650,6 +793,9 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
 
+    // Tag this turn as submitted by this device so the realtime subscription skips it
+    if (insertedTurn?.id) localTurnIds.current.add(insertedTurn.id);
+
     // Tag the last history snapshot (the one before the final dart) with the DB turn ID
     // so undo across this turn boundary will delete the right row
     if (insertedTurn?.id) {
@@ -707,6 +853,9 @@ export default function ActiveMatch({ match, players, supabase, navigate }) {
     };
 
     const { data: insertedTurn } = await supabase.from("turns").insert(turnData).select().single();
+
+    // Tag this turn as submitted by this device so the realtime subscription skips it
+    if (insertedTurn?.id) localTurnIds.current.add(insertedTurn.id);
 
     // Tag the last history snapshot with the DB turn ID for cross-turn undo
     if (insertedTurn?.id) {

@@ -1,4 +1,4 @@
-import { Target, Zap, Trophy, BarChart2, Settings } from "lucide-react";
+import { Target, Zap, Trophy, BarChart2 } from "lucide-react";
 
 const APP_VERSION = "V2.2026.03.29.21.34.29";
 
@@ -6,7 +6,7 @@ export default function HomeScreen({ navigate }) {
   return (
     <div className="home">
       <div className="home-header">
-        <div className="bullseye-icon">
+        <div className="bullseye-icon" onClick={() => navigate("admin")} style={{ cursor: "pointer" }}>
           <Target size={56} strokeWidth={1.5} color="#e8a020" />
         </div>
         <h1>SWEET RELEASE</h1>
@@ -25,10 +25,6 @@ export default function HomeScreen({ navigate }) {
         <button className="btn-secondary big-btn" onClick={() => navigate("stats")}>
           <span className="btn-icon"><BarChart2 size={18} strokeWidth={2} /></span>
           STATS
-        </button>
-        <button className="btn-admin" onClick={() => navigate("admin")}>
-          <Settings size={14} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle", marginRight: "0.35rem" }} />
-          Admin
         </button>
       </div>
 

@@ -47,7 +47,6 @@ export default function AdminPanel({ supabase, players, setPlayers, navigate, se
   const logout = async () => {
     await supabase.auth.signOut();
     setAuthed(false);
-    setEmailInput("");
     setPasswordInput("");
     navigate("home");
   };

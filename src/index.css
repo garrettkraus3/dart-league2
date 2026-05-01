@@ -2220,3 +2220,281 @@ input[type="password"].score-input {
   font-family: 'DM Sans', sans-serif;
   letter-spacing: 0.05em;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   DESKTOP HOME SCREEN — animated landscape (>= 1024px only)
+   Mobile renders the original .home layout above.
+   ════════════════════════════════════════════════════════════════ */
+
+.dh-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #5fb1e8;
+  user-select: none;
+}
+
+.dh-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Cloud drift — slow, infinite, staggered */
+.dh-cloud {
+  animation: dh-cloud-drift linear infinite;
+  transform-box: fill-box;
+}
+.dh-cloud-1 { animation-duration: 220s; animation-delay:    0s; }
+.dh-cloud-2 { animation-duration: 280s; animation-delay:  -40s; }
+.dh-cloud-3 { animation-duration: 320s; animation-delay: -160s; }
+.dh-cloud-4 { animation-duration: 260s; animation-delay: -100s; }
+@keyframes dh-cloud-drift {
+  0%   { transform: translateX(-260px); }
+  100% { transform: translateX(2200px); }
+}
+
+/* Volcano smoke plume */
+.dh-puff {
+  animation: dh-smoke-rise 9s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.dh-puff-1 { animation-delay:  0s;   }
+.dh-puff-2 { animation-delay: -2.2s; }
+.dh-puff-3 { animation-delay: -4.4s; }
+.dh-puff-4 { animation-delay: -6.6s; }
+@keyframes dh-smoke-rise {
+  0%   { transform: translate(0, 0)        scale(0.6); opacity: 0; }
+  15%  {                                                opacity: 0.55; }
+  100% { transform: translate(40px, -260px) scale(1.7); opacity: 0; }
+}
+
+/* Crater glow — slow steady pulse */
+.dh-crater-glow {
+  animation: dh-crater-pulse 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes dh-crater-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.18); }
+}
+
+/* Embers — silent until .erupting flips on */
+.dh-ember {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.dh-embers.erupting .dh-ember {
+  animation-name: dh-ember-burst;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+@keyframes dh-ember-burst {
+  0%   { opacity: 0;   transform: translate(0, 0) scale(0.4); }
+  18%  { opacity: 1;                                          }
+  100% { opacity: 0;   transform: translate(var(--drift, 0px), -240px) scale(1.5); }
+}
+
+/* Foreground grass blades — wind sway */
+.dh-blade {
+  animation-name: dh-grass-sway;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+@keyframes dh-grass-sway {
+  0%   { transform: rotate(-5deg) skewX(-2deg); }
+  100% { transform: rotate(5deg)  skewX(2deg); }
+}
+
+/* Dartboard — clickable, glow on hover */
+.dh-dartboard {
+  cursor: pointer;
+  transition: filter 0.3s ease, transform 0.3s ease;
+  transform-box: fill-box;
+  transform-origin: center 90px;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,0.45));
+}
+.dh-dartboard:hover {
+  filter:
+    drop-shadow(0 0 22px rgba(255, 138, 58, 0.85))
+    drop-shadow(0 10px 14px rgba(0,0,0,0.45));
+  transform: scale(1.04);
+}
+.dh-dartboard:focus { outline: none; }
+.dh-dartboard:focus-visible .dh-dartboard-glow {
+  opacity: 0.9;
+}
+.dh-dartboard:hover .dh-dartboard-glow {
+  opacity: 0.7;
+  animation: dh-dartboard-pulse 1.4s ease-in-out infinite;
+}
+@keyframes dh-dartboard-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1;   }
+}
+
+/* Sign — subtle drop shadow */
+.dh-sign {
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.4));
+}
+
+/* Player — drop shadow + tiny breathing motion */
+.dh-player {
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.5));
+  animation: dh-player-breathe 5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes dh-player-breathe {
+  0%, 100% { transform: scaleY(1);     }
+  50%      { transform: scaleY(1.008); }
+}
+
+/* ── Card stack (left side) ── */
+.dh-cards {
+  position: absolute;
+  left: max(2.5vw, 32px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  z-index: 10;
+  width: min(420px, 30vw);
+}
+
+.dh-wordmark {
+  font-family: 'Bebas Neue', 'Impact', sans-serif;
+  font-size: clamp(2.6rem, 4.4vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #fff;
+  line-height: 0.95;
+  margin-bottom: 0.15rem;
+  text-shadow:
+    0 4px 22px rgba(0,0,0,0.55),
+    0 1px 0 rgba(0,0,0,0.4);
+}
+
+.dh-tagline {
+  color: #f4ecd8;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+}
+
+.dh-card {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+  padding: 1rem 1.25rem;
+  background: rgba(20, 30, 22, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-left: 4px solid var(--card-accent, #fff);
+  border-radius: 12px;
+  backdrop-filter: blur(10px) saturate(1.25);
+  -webkit-backdrop-filter: blur(10px) saturate(1.25);
+  color: #fff;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  transition:
+    transform 0.32s cubic-bezier(.32, .12, .2, 1.05),
+    background 0.32s ease,
+    border-color 0.32s ease,
+    box-shadow 0.32s ease,
+    backdrop-filter 0.32s ease;
+}
+
+.dh-card:hover {
+  transform: scale(1.06) translateX(10px);
+  background: rgba(20, 30, 22, 0.62);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px var(--card-accent, transparent);
+}
+.dh-card:hover .dh-card-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+.dh-card:active {
+  transform: scale(1.10) translateX(14px);
+  background: rgba(15, 25, 18, 0.88);
+  border-color: var(--card-accent, #fff);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.6),
+    0 0 0 2px var(--card-accent, transparent),
+    inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+
+.dh-card-icon {
+  width: 46px; height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  flex-shrink: 0;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+
+.dh-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.dh-card-label {
+  font-family: 'Bebas Neue', 'Impact', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+.dh-card-sub {
+  font-size: 0.78rem;
+  opacity: 0.78;
+  letter-spacing: 0.04em;
+}
+
+.dh-card-arrow {
+  font-size: 1.4rem;
+  font-weight: 300;
+  opacity: 0.4;
+  color: var(--card-accent, #fff);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.dh-version {
+  position: absolute;
+  bottom: 0.6rem;
+  right: 1.1rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  z-index: 10;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .dh-cloud, .dh-puff, .dh-crater-glow, .dh-blade,
+  .dh-player, .dh-embers.erupting .dh-ember {
+    animation: none !important;
+  }
+}

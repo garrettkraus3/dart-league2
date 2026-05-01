@@ -1,8 +1,33 @@
+import { useEffect, useState } from "react";
 import { Target, Zap, Trophy, BarChart2 } from "lucide-react";
+import DesktopHomeScreen from "./DesktopHomeScreen";
 
 const APP_VERSION = "V2.2026.03.29.21.34.29";
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia(DESKTOP_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (e) => setIsDesktop(e.matches);
+    // Safari < 14 falls back to addListener
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+  return isDesktop;
+}
 
 export default function HomeScreen({ navigate }) {
+  const isDesktop = useIsDesktop();
+  if (isDesktop) return <DesktopHomeScreen navigate={navigate} />;
+
+  // ── Mobile / tablet — original layout, unchanged ───────────────
   return (
     <div className="home">
       <div className="home-header">

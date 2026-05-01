@@ -6,7 +6,10 @@
       "mcp__7418eff0-0ef0-4347-b808-cc63feb03dd5__get_advisors",
       "mcp__7418eff0-0ef0-4347-b808-cc63feb03dd5__list_migrations",
       "mcp__7418eff0-0ef0-4347-b808-cc63feb03dd5__execute_sql",
-      "mcp__7418eff0-0ef0-4347-b808-cc63feb03dd5__apply_migration"
+      "mcp__7418eff0-0ef0-4347-b808-cc63feb03dd5__apply_migration",
+      "Bash(npx vite *)",
+      "Bash(./node_modules/.bin/vite build *)",
+      "PowerShell(npx vite build 2>&1)"
     ]
   }
 }
